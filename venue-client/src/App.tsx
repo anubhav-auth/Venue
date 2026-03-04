@@ -1,3 +1,4 @@
+// src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -8,11 +9,12 @@ import Rooms from '@/pages/Rooms'
 import Students from '@/pages/Students'
 import Allocations from '@/pages/Allocations'
 import CheckIn from '@/pages/CheckIn'
+import Dashboard from '@/pages/Dashboard'
+import RoomDetail from '@/pages/RoomDetail'
 
 const qc = new QueryClient()
-
 function Guard({ children }: { children: React.ReactNode }) {
-  const token = useAuthStore((s) => s.token)
+  const token = useAuthStore(s => s.token)
   return token ? <>{children}</> : <Navigate to="/login" replace />
 }
 
@@ -24,11 +26,13 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Guard><Layout /></Guard>}>
-            <Route index element={<Navigate to="/rooms" replace />} />
-            <Route path="rooms"       element={<Rooms />} />
-            <Route path="students"    element={<Students />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="rooms" element={<Rooms />} />
+            <Route path="rooms/:id/detail" element={<RoomDetail />} />
+            <Route path="students" element={<Students />} />
             <Route path="allocations" element={<Allocations />} />
-            <Route path="checkin"     element={<CheckIn />} />
+            <Route path="checkin" element={<CheckIn />} />
           </Route>
         </Routes>
       </BrowserRouter>

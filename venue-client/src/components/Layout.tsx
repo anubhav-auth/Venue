@@ -1,13 +1,15 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { Building2, Users, LayoutGrid, QrCode, LogOut } from 'lucide-react'
+import { Building2, Users, LayoutGrid, QrCode, LogOut, LayoutDashboard } from 'lucide-react'
 import clsx from 'clsx'
 
+
 const nav = [
-  { to: '/rooms',       label: 'Rooms',       icon: Building2  },
-  { to: '/students',    label: 'Students',    icon: Users      },
-  { to: '/allocations', label: 'Allocations', icon: LayoutGrid },
-  { to: '/checkin',     label: 'Check-in',    icon: QrCode     },
+  { to: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: 'rooms',     label: 'Rooms',     icon: Building2 },
+  { to: 'students',  label: 'People',    icon: Users },
+  { to: 'allocations', label: 'Allocations', icon: LayoutGrid },
+  { to: 'checkin',   label: 'Check-in',  icon: QrCode },
 ]
 
 export default function Layout() {
