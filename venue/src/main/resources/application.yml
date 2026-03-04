@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: venue
+  datasource:
+    url: jdbc:postgresql://localhost:5432/venue_db
+    username: venue_user
+    password: venue_pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: venue-super-secret-key-must-be-at-least-64-characters-long-for-hs512-algo
+  expiration: 86400000
+
+bcrypt:
+  cost: 12
+
+csv:
+  validDegrees:
+    - BTECH
+    - BCA
+    - MTECH
+    - MCA
+    - MSC
+  student:
+    columns:
+      name: "Name"
+      regNo: "Regdno"
+      email: "Emailid"
+      lastName: "Lastname"
+      degree: "Degree"
+      contactNo: "Contactno"
+      passoutYear: "Passoutyear"
+  room:
+    columns:
+      roomName: "RoomName"
+      capacity: "Capacity"
+      building: "Building"
+      floor: "Floor"
+      day: "Day"
+      seatsPerRow: "SeatsPerRow"
