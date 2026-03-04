@@ -18,6 +18,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/audience")
@@ -57,6 +59,7 @@ public class AudienceCsvController {
             }
 
             List<String> validDegrees = csvColumnResolver.getValidDegrees();
+            Set<String> seenInBatch = new HashSet<>();  // ← tracks regNos seen in THIS upload
 
             String line;
             int rowNum = 1;
@@ -91,8 +94,8 @@ public class AudienceCsvController {
                     continue;
                 }
 
-                // Skip duplicate regNo
-                if (studentRepository.existsByRegNo(regNo)) {
+                // Skip duplicate regNo — check DB AND current batch
+                if (studentRepository.existsByRegNo(regNo) || seenInBatch.contains(regNo)) {
                     rowErrors.add(ImportResult.RowError.builder()
                             .row(rowNum).reason("Duplicate regNo: " + regNo + " — skipped").build());
                     skipped++;
@@ -110,7 +113,6 @@ public class AudienceCsvController {
                     continue;
                 }
 
-                // Password = regNo + lastName (both lowercased)
                 String rawPassword = regNo.toLowerCase() + lastName.toLowerCase();
                 String passwordHash = passwordEncoder.encode(rawPassword);
 
@@ -126,6 +128,8 @@ public class AudienceCsvController {
                         .role("AUDIENCE")
                         .isPromoted(false)
                         .build());
+
+                seenInBatch.add(regNo);  // ← mark as seen
                 imported++;
             }
 
