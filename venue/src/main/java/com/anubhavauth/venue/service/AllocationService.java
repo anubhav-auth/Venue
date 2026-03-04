@@ -5,6 +5,7 @@ import com.anubhavauth.venue.dto.AllocationSummaryDto;
 import com.anubhavauth.venue.entity.Room;
 import com.anubhavauth.venue.entity.SeatAssignment;
 import com.anubhavauth.venue.entity.Student;
+import com.anubhavauth.venue.repository.CheckInRepository;
 import com.anubhavauth.venue.repository.RoomRepository;
 import com.anubhavauth.venue.repository.SeatAssignmentRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
@@ -22,6 +23,7 @@ public class AllocationService {
 
     private final StudentRepository studentRepository;
     private final RoomRepository roomRepository;
+    private final CheckInRepository checkInRepository;
     private final SeatAssignmentRepository seatAssignmentRepository;
     private final HashService hashService;
     private final ObjectMapper objectMapper;
@@ -187,6 +189,7 @@ public class AllocationService {
 
     @Transactional
     public void clearAllocations() {
+        checkInRepository.deleteAll();
         seatAssignmentRepository.deleteAll();
     }
 }
