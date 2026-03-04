@@ -3,7 +3,9 @@ package com.anubhavauth.venue.controller;
 import com.anubhavauth.venue.dto.ScanRequest;
 import com.anubhavauth.venue.dto.VerifierDashboardDto;
 import com.anubhavauth.venue.entity.*;
+import com.anubhavauth.venue.event.CheckInEvent;
 import com.anubhavauth.venue.repository.*;
+import com.anubhavauth.venue.service.CheckInEventPublisher;
 import com.anubhavauth.venue.util.HashService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 
@@ -29,6 +32,8 @@ public class VerifierController {
     private final StudentRepository studentRepository;
     private final HashService hashService;
     private final ObjectMapper objectMapper;
+    private final CheckInEventPublisher eventPublisher;
+
 
     @GetMapping("/dashboard/stats")
     @Transactional(readOnly = true)
@@ -139,6 +144,20 @@ public class VerifierController {
                 .day(day)
                 .build());
 
+        eventPublisher.publish(CheckInEvent.builder()
+                .studentId(student.getId())
+                .studentName(student.getName())
+                .regNo(student.getRegNo())
+                .roomId(null)
+                .roomName("N/A")
+                .seatNumber(null)
+                .day(day)
+                .verifierUsername(verifier.getUsername())
+                .checkInTime(LocalDateTime.now())
+                .roomCheckedInCount(0)
+                .build());
+
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "studentName", student.getName(),
@@ -205,6 +224,32 @@ public class VerifierController {
                 .method("qrscan")
                 .day(day)
                 .build());
+
+        CheckIn saved = checkInRepository.save(CheckIn.builder()
+                .student(student)
+                .room(room)
+                .seatNumber(seatNumber)
+                .verifier(verifier)
+                .method("qrscan")
+                .day(day)
+                .build());
+
+        long roomCount = checkInRepository
+                .countByRoomIdAndDayAndDeletedAtIsNull(room.getId(), day);
+
+        eventPublisher.publish(CheckInEvent.builder()
+                .studentId(student.getId())
+                .studentName(student.getName())
+                .regNo(student.getRegNo())
+                .roomId(room.getId())
+                .roomName(room.getRoomName())
+                .seatNumber(seatNumber)
+                .day(day)
+                .verifierUsername(verifier.getUsername())
+                .checkInTime(saved.getCheckInTime())
+                .roomCheckedInCount(roomCount)
+                .build());
+
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
