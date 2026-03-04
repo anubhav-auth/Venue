@@ -1,34 +1,74 @@
 services:
+
   postgres:
     image: postgres:16-alpine
     container_name: venue_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: venue_db
-      POSTGRES_USER: venue_user
-      POSTGRES_PASSWORD: venue_pass
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-venue_db}
+      POSTGRES_USER: ${POSTGRES_USER:-venue_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - venue_postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U venue_user -d venue_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-venue_user} -d ${POSTGRES_DB:-venue_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - venue_net
 
   redis:
     image: redis:7-alpine
     container_name: venue_redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
     volumes:
-      - venue_redis_data:/data
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 5s
+      timeout: 3s
       retries: 5
+    networks:
+      - venue_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: venue_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-venue_db}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-venue_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      APP_QR_SECRET: ${QR_SECRET}
+      BCRYPT_COST: ${BCRYPT_COST:-12}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - venue_net
 
 volumes:
-  venue_postgres_data:
-  venue_redis_data:
+  postgres_data:
+  redis_data:
+
+networks:
+  venue_net:
+    driver: bridge
