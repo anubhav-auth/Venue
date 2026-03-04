@@ -103,6 +103,7 @@ public class AllocationService {
                     qrPayload.put("roomId", sa.getRoom().getId());
                     qrPayload.put("seatNumber", sa.getSeatNumber()); // null for overflow
                     qrPayload.put("day", sa.getDay());
+                    qrPayload.put("role", "AUDIENCE");
                     qrPayload.put("hash", hash);
                     sa.setQrCodeData(objectMapper.writeValueAsString(qrPayload));
                 } catch (Exception e) {
