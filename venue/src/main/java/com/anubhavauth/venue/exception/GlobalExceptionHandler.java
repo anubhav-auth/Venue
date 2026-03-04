@@ -30,7 +30,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
         return switch (ex.getMessage()) {
-            case "ROOM_NOT_FOUND" -> ResponseEntity.notFound().<Map<String, String>>build();
+            case "ROOM_NOT_FOUND"       -> ResponseEntity.notFound().<Map<String, String>>build();
+            case "VERIFIER_NOT_FOUND"   -> ResponseEntity.notFound().<Map<String, String>>build();
+            case "STUDENT_NOT_FOUND"    -> ResponseEntity.notFound().<Map<String, String>>build();
             case "ROOM_HAS_ASSIGNMENTS" -> ResponseEntity.badRequest()
                     .body(Map.of("error", "Cannot delete room with existing seat assignments"));
             default -> ResponseEntity.internalServerError()
