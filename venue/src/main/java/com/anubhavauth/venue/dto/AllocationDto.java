@@ -10,7 +10,6 @@ public class AllocationDto {
     private Long studentId;
     private String regNo;
     private String name;
-    private String lastName;
     private String degree;
     private Integer passoutYear;
     private String role;

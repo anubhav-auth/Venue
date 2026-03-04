@@ -1,7 +1,5 @@
-package com.anubhavauth.venue.controller;
+package com.anubhavauth.venue.dto;
 
-import com.anubhavauth.venue.dto.StudentAssignmentDto;
-import com.anubhavauth.venue.dto.StudentProfileDto;
 import com.anubhavauth.venue.entity.SeatAssignment;
 import com.anubhavauth.venue.entity.Student;
 import com.anubhavauth.venue.repository.SeatAssignmentRepository;
@@ -75,7 +73,6 @@ public class StudentController {
                 .id(student.getId())
                 .regNo(student.getRegNo())
                 .name(student.getName())
-                .lastName(student.getLastName())
                 .email(student.getEmail())
                 .degree(student.getDegree())
                 .passoutYear(student.getPassoutYear())

@@ -31,13 +31,7 @@ public class StudentAuthController {
 
         Student student = studentOpt.get();
 
-        // Case-insensitive last name match
-        if (!student.getLastName().equalsIgnoreCase(request.getLastName())) {
-            return ResponseEntity.status(404).body(Map.of("error", "Student not found"));
-        }
-
-        // Password is always regNo + lastName lowercased
-        String password = student.getRegNo().toLowerCase() + student.getLastName().toLowerCase();
+        String password = student.getRegNo().toLowerCase();
         return ResponseEntity.ok(Map.of("password", password));
     }
 }

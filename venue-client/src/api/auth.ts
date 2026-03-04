@@ -1,4 +1,12 @@
 import api from './client'
 
+interface LoginResponse {
+  token: string
+  role: string
+  username: string
+  name: string | null
+  assignments: { day: string; roomId: number; roomName: string }[] | null
+}
+
 export const login = (username: string, password: string) =>
-  api.post<{ token: string; role: string; username: string }>('/auth/login', { username, password })
+  api.post<LoginResponse>('/auth/login', { username, password })

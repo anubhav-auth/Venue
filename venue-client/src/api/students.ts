@@ -1,7 +1,7 @@
 import api from './client'
 
 export interface Student {
-  id: number; regNo: string; name: string; lastName: string
+  id: number; regNo: string; name: string;
   degree: string; passoutYear: number; role: string
 }
 

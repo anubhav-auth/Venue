@@ -10,10 +10,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+
 import com.anubhavauth.venue.dto.PromoteRequest;
 import com.anubhavauth.venue.entity.Room;
 import com.anubhavauth.venue.entity.VerifierAssignment;
@@ -28,6 +33,35 @@ public class VerifierManagementController {
     private final VerifierAssignmentRepository verifierAssignmentRepository;
     private final StudentRepository studentRepository;
     private final RoomRepository roomRepository;
+
+    @GetMapping("/verifiers")
+    @Transactional(readOnly = true)          // ← add this
+    public ResponseEntity<?> listVerifiers() {
+        List<Verifier> verifiers = verifierRepository.findAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Verifier v : verifiers) {
+            List<Map<String, Object>> assignments = new ArrayList<>();
+
+            for (VerifierAssignment va : verifierAssignmentRepository.findByVerifierId(v.getId())) {
+                Map<String, Object> a = new HashMap<>();
+                a.put("day", va.getDay());
+                a.put("roomId", va.getRoom().getId());        // now works — session still open
+                a.put("roomName", va.getRoom().getRoomName());
+                assignments.add(a);
+            }
+
+            Map<String, Object> dto = new HashMap<>();
+            dto.put("id", v.getId());
+            dto.put("username", v.getUsername());
+            dto.put("name", v.getName());
+            dto.put("assignments", assignments);
+            result.add(dto);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
 
     @PostMapping("/verifiers/{id}/demote")
     @Transactional

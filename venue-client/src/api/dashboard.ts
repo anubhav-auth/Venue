@@ -1,9 +1,10 @@
-// src/api/dashboard.ts
-import api from './client'
+import api from '@/api/client'
 
 export interface RoomStats {
   roomId: number
   roomName: string
+  building: string
+  floor: string
   capacity: number
   checkedIn: number
   percentage: number
@@ -11,10 +12,12 @@ export interface RoomStats {
 }
 
 export interface DashboardStats {
-  totalStudents: number
-  checkedIn: number
-  percentage: number
-  notCheckedIn: number
+  overall: {                  // ← backend wraps these in "overall"
+    totalStudents: number
+    checkedIn: number
+    percentage: number
+    notCheckedIn: number
+  }
   rooms: RoomStats[]
   lastUpdated: string
 }

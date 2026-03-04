@@ -12,7 +12,7 @@ import java.util.Optional;
 public interface VerifierAssignmentRepository extends JpaRepository<VerifierAssignment, Long> {
 
     Optional<VerifierAssignment> findByVerifierIdAndDay(Long verifierId, String day);
-
+    List<VerifierAssignment> findByVerifierId(Long verifierId);
     @Modifying
     @Query("DELETE FROM VerifierAssignment va WHERE va.verifier.id = :verifierId AND va.day = :day")
     void deleteByVerifierIdAndDay(@Param("verifierId") Long verifierId, @Param("day") String day);

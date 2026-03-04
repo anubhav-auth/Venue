@@ -39,7 +39,7 @@ function ImportTab() {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="bg-white rounded-xl border p-6 space-y-3">
         <h2 className="font-semibold text-sm">Audience CSV Upload</h2>
-        <p className="text-xs text-gray-400">Required columns: Name, Regdno, Emailid, Lastname, Degree, Contactno, Passoutyear</p>
+        <p className="text-xs text-gray-400">Required columns: Name, Regdno, Emailid, Degree, Contactno, Passoutyear</p>
         <CsvUploadZone label="Audience" onUpload={uploadAudienceCsv} />
       </div>
       <div className="bg-white rounded-xl border p-6 space-y-3">
@@ -70,7 +70,13 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
 
   const promote = useMutation({
     mutationFn: ({ id, a }: { id: number; a: typeof assignments }) => promoteVolunteer(id, a),
-    onSuccess: () => { toast.success('Promoted to verifier!'); qc.invalidateQueries({ queryKey: ['volunteers'] }); qc.invalidateQueries({ queryKey: ['verifiers'] }); setPromoteModal({ open: false }) }
+    onSuccess: () => {
+      toast.success('Promoted to verifier!')
+      qc.invalidateQueries({ queryKey: ['volunteers'] })
+      qc.invalidateQueries({ queryKey: ['verifiers'] })
+      setPromoteModal({ open: false })
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Promotion failed')
   })
 
   const startScan = async () => {
@@ -101,13 +107,16 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-            <tr>{['RegNo', 'Name', 'Day 1', 'Day 2', 'Status', ''].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['RegNo', 'Name', 'Email', 'Day 1', 'Day 2', 'Status', ''].map(h =>
+              <th key={h} className="px-4 py-3 text-left">{h}</th>
+            )}</tr>
           </thead>
           <tbody className="divide-y">
             {volunteers.map(v => (
-              <tr key={v.id} className="hover:bg-gray-50">
+              <tr key={v.studentId} className="hover:bg-gray-50">  {/* ← studentId */}
                 <td className="px-4 py-3 font-mono text-xs">{v.regNo}</td>
                 <td className="px-4 py-3">{v.name}</td>
+                <td className="px-4 py-3 text-xs text-gray-400">{v.email}</td>
                 <td className="px-4 py-3">{v.day1Attended ? '✅' : '—'}</td>
                 <td className="px-4 py-3">{v.day2Attended ? '✅' : '—'}</td>
                 <td className="px-4 py-3">
@@ -116,14 +125,21 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button disabled={!v.canPromote}
-                    onClick={() => { setAssignments([{ day: 'day1', roomId: 0 }]); setPromoteModal({ open: true, id: v.id, name: v.name }) }}
+                  <button
+                    disabled={!v.canPromote || v.isPromoted}
+                    onClick={() => {
+                      setAssignments([{ day: 'day1', roomId: 0 }])
+                      setPromoteModal({ open: true, id: v.studentId, name: v.name })  // ← studentId
+                    }}
                     className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                    <UserCheck size={12} /> Promote
+                    <UserCheck size={12} /> {v.isPromoted ? 'Promoted' : 'Promote'}
                   </button>
                 </td>
               </tr>
             ))}
+            {volunteers.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No volunteers imported yet</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -132,29 +148,36 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
       {promoteModal.open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
-            <h2 className="font-semibold">Promote {promoteModal.name}</h2>
+            <h2 className="font-semibold">Promote {promoteModal.name} to Verifier</h2>
+            <p className="text-xs text-gray-500">Assign room(s) this verifier will manage:</p>
             <div className="space-y-3">
               {assignments.map((a, i) => (
                 <div key={i} className="grid grid-cols-2 gap-2">
-                  <select value={a.day} onChange={e => setAssignments(p => p.map((x, j) => j === i ? { ...x, day: e.target.value } : x))}
+                  <select value={a.day}
+                    onChange={e => setAssignments(p => p.map((x, j) => j === i ? { ...x, day: e.target.value } : x))}
                     className="border rounded-lg px-3 py-2 text-sm">
                     <option value="day1">Day 1</option>
                     <option value="day2">Day 2</option>
                   </select>
-                  <select value={a.roomId} onChange={e => setAssignments(p => p.map((x, j) => j === i ? { ...x, roomId: +e.target.value } : x))}
+                  <select value={a.roomId}
+                    onChange={e => setAssignments(p => p.map((x, j) => j === i ? { ...x, roomId: +e.target.value } : x))}
                     className="border rounded-lg px-3 py-2 text-sm">
                     <option value={0}>Select room</option>
-                    {(a.day === 'day1' ? day1Rooms : day2Rooms).map(r => <option key={r.id} value={r.id}>{r.roomName}</option>)}
+                    {(a.day === 'day1' ? day1Rooms : day2Rooms).map(r =>
+                      <option key={r.id} value={r.id}>{r.roomName}</option>
+                    )}
                   </select>
                 </div>
               ))}
               <button onClick={() => setAssignments(p => [...p, { day: 'day1', roomId: 0 }])}
-                className="text-sm text-indigo-600 hover:underline">+ Add Day</button>
+                className="text-sm text-indigo-600 hover:underline">+ Add another day</button>
             </div>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setPromoteModal({ open: false })} className="px-4 py-2 text-sm border rounded-lg">Cancel</button>
-              <button onClick={() => promote.mutate({ id: promoteModal.id!, a: assignments.filter(x => x.roomId > 0) })}
-                disabled={promote.isPending}
+            <div className="flex gap-3 justify-end pt-2">
+              <button onClick={() => setPromoteModal({ open: false })}
+                className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-50">Cancel</button>
+              <button
+                onClick={() => promote.mutate({ id: promoteModal.id!, a: assignments.filter(x => x.roomId > 0) })}
+                disabled={promote.isPending || assignments.every(x => x.roomId === 0)}
                 className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60">
                 {promote.isPending ? 'Promoting…' : 'Confirm Promote'}
               </button>
@@ -165,6 +188,7 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
     </div>
   )
 }
+
 
 function VerifiersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const { data: verifiers = [] } = useQuery({ queryKey: ['verifiers'], queryFn: () => getVerifiers().then(r => r.data) })

@@ -50,7 +50,7 @@ public class AudienceCsvController {
             Map<String, Integer> indexMap = csvColumnResolver.resolveHeaders(headerLine, columnDefs);
 
             // Validate all required columns exist
-            for (String required : List.of("name", "regNo", "email", "lastName", "degree", "contactNo", "passoutYear")) {
+            for (String required : List.of("name", "regNo", "email", "degree", "contactNo", "passoutYear")) {
                 if (!indexMap.containsKey(required)) {
                     return ResponseEntity.badRequest().body(ImportResult.builder()
                             .errors(1).rowErrors(List.of(ImportResult.RowError.builder()
@@ -70,14 +70,13 @@ public class AudienceCsvController {
 
                 String regNo      = csvColumnResolver.getValue(cols, indexMap, "regNo");
                 String name       = csvColumnResolver.getValue(cols, indexMap, "name");
-                String lastName   = csvColumnResolver.getValue(cols, indexMap, "lastName");
                 String email      = csvColumnResolver.getValue(cols, indexMap, "email");
                 String degree     = csvColumnResolver.getValue(cols, indexMap, "degree");
                 String contactNo  = csvColumnResolver.getValue(cols, indexMap, "contactNo");
                 String passoutYearStr = csvColumnResolver.getValue(cols, indexMap, "passoutYear");
 
                 // Validate required fields
-                if (regNo == null || name == null || lastName == null || email == null
+                if (regNo == null || name == null || email == null
                         || degree == null || contactNo == null || passoutYearStr == null) {
                     rowErrors.add(ImportResult.RowError.builder()
                             .row(rowNum).reason("Missing required field(s)").build());
@@ -112,14 +111,13 @@ public class AudienceCsvController {
                     skipped++;
                     continue;
                 }
-
-                String rawPassword = regNo.toLowerCase() + lastName.toLowerCase();
+                regNo = regNo.toLowerCase();
+                String rawPassword = regNo;
                 String passwordHash = passwordEncoder.encode(rawPassword);
 
                 toSave.add(Student.builder()
                         .regNo(regNo)
                         .name(name)
-                        .lastName(lastName)
                         .email(email)
                         .degree(degree.toUpperCase())
                         .contactNo(contactNo)

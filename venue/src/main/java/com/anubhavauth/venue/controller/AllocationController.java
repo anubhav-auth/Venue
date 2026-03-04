@@ -67,7 +67,7 @@ public class AllocationController {
         List<AllocationDto> filtered = all.stream().filter(sa -> day == null || day.isBlank() || sa.getDay().equals(day)).filter(sa -> roomId == null || roomId.isBlank() || sa.getRoom().getId().toString().equals(roomId)).map(sa -> {
             Student s = sa.getStudent();
             Room r = sa.getRoom();
-            return AllocationDto.builder().assignmentId(sa.getId()).studentId(s.getId()).regNo(s.getRegNo()).name(s.getName()).lastName(s.getLastName()).degree(s.getDegree()).passoutYear(s.getPassoutYear()).role(s.getRole()).roomId(r.getId()).roomName(r.getRoomName()).building(r.getBuilding()).floor(r.getFloor()).seatNumber(sa.getSeatNumber()).day(sa.getDay()).overflow(sa.getSeatNumber() == null).build();
+            return AllocationDto.builder().assignmentId(sa.getId()).studentId(s.getId()).regNo(s.getRegNo()).name(s.getName()).degree(s.getDegree()).passoutYear(s.getPassoutYear()).role(s.getRole()).roomId(r.getId()).roomName(r.getRoomName()).building(r.getBuilding()).floor(r.getFloor()).seatNumber(sa.getSeatNumber()).day(sa.getDay()).overflow(sa.getSeatNumber() == null).build();
         }).toList();
 
         // Manual pagination

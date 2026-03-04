@@ -9,15 +9,22 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// src/api/client.ts
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
+      // Only logout if it's an auth failure, not a missing endpoint
+      const url = err.config?.url ?? ''
+      const isAuthEndpoint = url.includes('/auth/')
+      if (!isAuthEndpoint) {
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
 )
+
 
 export default api

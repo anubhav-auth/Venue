@@ -41,7 +41,6 @@ csv:
       name: "Name"
       regNo: "Regdno"
       email: "Emailid"
-      lastName: "Lastname"
       degree: "Degree"
       contactNo: "Contactno"
       passoutYear: "Passoutyear"

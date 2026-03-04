@@ -38,7 +38,7 @@ public class ReportController {
                 : seatAssignmentRepository.findAll();
 
         StringBuilder csv = new StringBuilder();
-        csv.append("RegNo,Name,LastName,Degree,PassoutYear,Room,Building,Floor,SeatNumber,Day,CheckedIn,CheckInTime,VerifiedBy\n");
+        csv.append("RegNo,Name,Degree,PassoutYear,Room,Building,Floor,SeatNumber,Day,CheckedIn,CheckInTime,VerifiedBy\n");
 
         for (SeatAssignment sa : assignments) {
             Student s = sa.getStudent();
@@ -53,7 +53,6 @@ public class ReportController {
 
             csv.append(escape(s.getRegNo())).append(",")
                     .append(escape(s.getName())).append(",")
-                    .append(escape(s.getLastName())).append(",")
                     .append(escape(s.getDegree())).append(",")
                     .append(s.getPassoutYear()).append(",")
                     .append(escape(r.getRoomName())).append(",")
@@ -119,7 +118,7 @@ public class ReportController {
                 : seatAssignmentRepository.findAll();
 
         StringBuilder csv = new StringBuilder();
-        csv.append("RegNo,Name,LastName,Email,ContactNo,Degree,PassoutYear,Room,Building,Floor,SeatNumber,Day\n");
+        csv.append("RegNo,Name,Email,ContactNo,Degree,PassoutYear,Room,Building,Floor,SeatNumber,Day\n");
 
         for (SeatAssignment sa : assignments) {
             Student s = sa.getStudent();
@@ -130,7 +129,6 @@ public class ReportController {
             Room r = sa.getRoom();
             csv.append(escape(s.getRegNo())).append(",")
                     .append(escape(s.getName())).append(",")
-                    .append(escape(s.getLastName())).append(",")
                     .append(escape(s.getEmail())).append(",")
                     .append(escape(s.getContactNo())).append(",")
                     .append(escape(s.getDegree())).append(",")

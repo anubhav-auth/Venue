@@ -1,10 +1,10 @@
-// src/api/volunteers.ts
-import api from './client'
+import api from '@/api/client'
 
 export interface VolunteerDto {
-  id: number
+  studentId: number          // ← was "id"
   regNo: string
   name: string
+  email: string
   day1Attended: boolean
   day2Attended: boolean
   isPromoted: boolean

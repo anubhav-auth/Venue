@@ -2,7 +2,7 @@ import api from './client'
 
 export interface Allocation {
   assignmentId: number; studentId: number; regNo: string
-  name: string; lastName: string; degree: string
+  name: string; degree: string
   passoutYear: number; role: string; roomId: number
   roomName: string; building: string; floor: string
   seatNumber: string | null; day: string; overflow: boolean
