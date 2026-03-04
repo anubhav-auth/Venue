@@ -2,6 +2,7 @@ package com.anubhavauth.venue.controller;
 
 import com.anubhavauth.venue.entity.Student;
 import com.anubhavauth.venue.entity.Verifier;
+import com.anubhavauth.venue.repository.RoomRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
 import com.anubhavauth.venue.repository.VerifierAssignmentRepository;
 import com.anubhavauth.venue.repository.VerifierRepository;
@@ -13,6 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.anubhavauth.venue.dto.PromoteRequest;
+import com.anubhavauth.venue.entity.Room;
+import com.anubhavauth.venue.entity.VerifierAssignment;
+
 
 @RestController
 @RequestMapping("/api/admin")
@@ -22,6 +27,7 @@ public class VerifierManagementController {
     private final VerifierRepository verifierRepository;
     private final VerifierAssignmentRepository verifierAssignmentRepository;
     private final StudentRepository studentRepository;
+    private final RoomRepository roomRepository;
 
     @PostMapping("/verifiers/{id}/demote")
     @Transactional
@@ -83,4 +89,75 @@ public class VerifierManagementController {
                 "autodemoted", autodemotedNames
         ));
     }
+
+    @PutMapping("/verifiers/{id}/assignments/{day}")
+    @Transactional
+    public ResponseEntity<?> updateAssignment(
+            @PathVariable Long id,
+            @PathVariable String day,
+            @RequestBody PromoteRequest.Assignment assignment) {
+
+        Verifier verifier = verifierRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("VERIFIER_NOT_FOUND"));
+
+        Room room = roomRepository.findById(assignment.getRoomId())
+                .orElseThrow(() -> new RuntimeException("ROOM_NOT_FOUND"));
+
+        if (!room.getDay().equals(day)) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Room is not assigned to " + day));
+        }
+
+        // Delete existing assignment for this day, replace with new room
+        verifierAssignmentRepository.deleteByVerifierIdAndDay(id, day);
+
+        VerifierAssignment va = VerifierAssignment.builder()
+                .verifier(verifier)
+                .room(room)
+                .day(day)
+                .build();
+        verifierAssignmentRepository.save(va);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Assignment updated",
+                "verifierId", id,
+                "day", day,
+                "roomId", room.getId(),
+                "roomName", room.getRoomName()
+        ));
+    }
+
+    @DeleteMapping("/verifiers/{id}/assignments/{day}")
+    @Transactional
+    public ResponseEntity<?> deleteAssignment(
+            @PathVariable Long id,
+            @PathVariable String day) {
+
+        Verifier verifier = verifierRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("VERIFIER_NOT_FOUND"));
+
+        verifierAssignmentRepository.deleteByVerifierIdAndDay(id, day);
+
+        long remaining = verifierAssignmentRepository.countByVerifierId(id);
+
+        // Auto-demote if no assignments remain
+        if (remaining == 0) {
+            Student student = studentRepository.findByRegNo(verifier.getUsername()).orElse(null);
+            if (student != null) {
+                student.setIsPromoted(false);
+                studentRepository.save(student);
+            }
+            verifierRepository.delete(verifier);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Last assignment removed — verifier auto-demoted",
+                    "regNo", verifier.getUsername()
+            ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Assignment removed",
+                "remainingAssignments", remaining
+        ));
+    }
+
 }
