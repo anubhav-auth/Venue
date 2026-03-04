@@ -55,3 +55,8 @@ csv:
       seatsPerRow: "SeatsPerRow"
 app:
   qr-secret: venue-qr-secret-key-change-in-production
+cors:
+  allowed-origins:
+    - http://localhost:3000    # React dev (CRA)
+    - http://localhost:5173    # React dev (Vite)
+    - http://localhost:4173    # Vite preview
