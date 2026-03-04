@@ -53,3 +53,5 @@ csv:
       floor: "Floor"
       day: "Day"
       seatsPerRow: "SeatsPerRow"
+app:
+  qr-secret: venue-qr-secret-key-change-in-production
