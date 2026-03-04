@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/student/auth/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/verifier/**").hasRole("VERIFIER")
                         .requestMatchers("/api/student/**").hasAnyRole("AUDIENCE", "VOLUNTEER")
