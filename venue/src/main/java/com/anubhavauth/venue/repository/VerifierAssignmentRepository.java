@@ -28,4 +28,16 @@ public interface VerifierAssignmentRepository extends JpaRepository<VerifierAssi
         AND va.day = :day
     """)
     List<VerifierAssignment> findVerifiersWithOnlyDay(@Param("day") String day);
+
+    @Query("""
+    SELECT DISTINCT va.verifier.id FROM VerifierAssignment va
+    WHERE va.verifier.id NOT IN (
+        SELECT va2.verifier.id FROM VerifierAssignment va2
+        WHERE va2.day != :day
+    )
+    AND va.day = :day
+""")
+    List<Long> findVerifierIdsWithOnlyDay(@Param("day") String day);
+
+
 }
