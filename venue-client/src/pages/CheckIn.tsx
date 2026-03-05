@@ -1,11 +1,10 @@
 // src/pages/CheckIn.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { checkIn } from '@/api/checkin'
 import { useAuthStore } from '@/store/authStore'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Camera, CameraOff } from 'lucide-react'
-import toast from 'react-hot-toast'
 import api from '@/api/client'
 
 interface Scan { name: string; seat: string; success: boolean; time: string }

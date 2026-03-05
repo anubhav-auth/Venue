@@ -7,7 +7,8 @@ import toast from 'react-hot-toast'
 import { Plus, Edit2, Trash2 } from 'lucide-react'
 
 const DAYS = ['day1', 'day2'] as const
-const emptyForm = { roomName: '', building: '', floor: '', capacity: 0, seatsPerRow: 10, day: 'day1' as const }
+const emptyForm: { roomName: string; building: string; floor: string; capacity: number; seatsPerRow: number; day: 'day1' | 'day2' } = 
+  { roomName: '', building: '', floor: '', capacity: 0, seatsPerRow: 10, day: 'day1' }
 
 export default function Rooms() {
   const [day, setDay] = useState<'day1' | 'day2'>('day1')

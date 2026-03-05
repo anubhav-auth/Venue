@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { LogOut, MapPin, Download, QrCode } from 'lucide-react'
+import { MapPin, Download, QrCode } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { getStudentAssignment, downloadStudentQr } from '@/api/studentPortal'
 import toast from 'react-hot-toast'

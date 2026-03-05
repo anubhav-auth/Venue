@@ -34,7 +34,7 @@ export default function Students() {
 }
 
 function ImportTab() {
-  const qc = useQueryClient()
+  useQueryClient()
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="bg-white rounded-xl border p-6 space-y-3">
