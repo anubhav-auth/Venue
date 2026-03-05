@@ -39,6 +39,6 @@ export const useAuthStore = create<AuthState>()(
       logout: () =>
         set({ token: null, role: null, username: null, name: null, assignments: null }),
     }),
-    { name: 'venue-auth' }
+    { name: import.meta.env.VITE_AUTH_STORE_KEY || 'venue-auth' }
   )
 )

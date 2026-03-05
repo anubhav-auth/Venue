@@ -4,6 +4,12 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { getVerifierStats, scanQr } from '../api/verifier';
 import { useAuthStore } from '../store/authStore';
 
+// ── Env-driven config ────────────────────────────────────────────────────────
+const QR_FPS     = Number(import.meta.env.VITE_QR_FPS)               || 10;
+const QR_BOX_W   = Number(import.meta.env.VITE_QR_BOX_WIDTH)         || 240;
+const QR_BOX_H   = Number(import.meta.env.VITE_QR_BOX_HEIGHT)        || 240;
+const REFETCH_MS = Number(import.meta.env.VITE_STATS_REFETCH_INTERVAL) || 30_000;
+
 interface RecentScan {
   id: string;
   studentName: string;
@@ -29,7 +35,7 @@ export default function VerifierDashboard() {
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['verifierStats', selectedDay],
     queryFn: () => getVerifierStats(selectedDay).then(r => r.data),
-    refetchInterval: 30_000,
+    refetchInterval: REFETCH_MS,                                      // ← was 30_000
     enabled: !!selectedDay,
   });
 
@@ -75,7 +81,7 @@ export default function VerifierDashboard() {
     scannerRef.current = scanner;
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 240, height: 240 } },
+      { fps: QR_FPS, qrbox: { width: QR_BOX_W, height: QR_BOX_H } }, // ← was hardcoded
       handleScanSuccess,
       () => {}
     ).catch(() => { setScannerActive(false); });
@@ -139,8 +145,8 @@ export default function VerifierDashboard() {
             <div className="grid grid-cols-3 gap-2 text-center">
               {[
                 { label: 'Checked In', value: stats.checkedInCount, color: 'text-green-600' },
-                { label: 'Remaining', value: stats.remaining, color: 'text-orange-500' },
-                { label: 'Capacity', value: stats.capacity, color: 'text-gray-700' },
+                { label: 'Remaining',  value: stats.remaining,      color: 'text-orange-500' },
+                { label: 'Capacity',   value: stats.capacity,       color: 'text-gray-700' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="bg-gray-50 rounded-lg py-2">
                   <p className={`text-2xl font-bold ${color}`}>{value}</p>

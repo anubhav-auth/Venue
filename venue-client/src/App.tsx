@@ -51,15 +51,15 @@ class ErrorBoundary extends Component<
   }
 }
 
-// ── Auth Guards (Role-Based) ────────────────────────────────────────────────
 const qc = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 10_000,
+      retry:     Number(import.meta.env.VITE_QUERY_RETRY)      || 1,
+      staleTime: Number(import.meta.env.VITE_QUERY_STALE_TIME) || 10_000,
     },
   },
-});
+})
+
 
 // Protects Admin/Verifier Routes (Layout + Sidebar)
 function AdminGuard({ children }: { children: ReactNode }) {
@@ -106,7 +106,7 @@ function VerifierGuard({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={qc}>
-      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+      <Toaster position="top-right" toastOptions={{ duration: Number(import.meta.env.VITE_TOAST_DURATION) || 3000 }} />
       <BrowserRouter>
         <ErrorBoundary>
           <Routes>

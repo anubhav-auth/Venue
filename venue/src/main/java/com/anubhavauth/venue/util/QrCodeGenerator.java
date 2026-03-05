@@ -7,6 +7,7 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
@@ -16,7 +17,8 @@ import java.util.Map;
 @Component
 public class QrCodeGenerator {
 
-    private static final int SIZE = 300;
+    @Value("${qr.code.size:300}")
+    private int SIZE;
 
     public byte[] generate(String content) {
         try {

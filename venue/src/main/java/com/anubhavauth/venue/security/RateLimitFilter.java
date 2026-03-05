@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -14,11 +15,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    // Max attempts per window per IP
-    private static final int MAX_ATTEMPTS = 10;
-    private static final long WINDOW_MS = 60_000L;  // 1 minute
+    @Value("${rate.limit.max-attempts:10}")
+    private int MAX_ATTEMPTS;
 
-    private record Bucket(int count, long windowStart) {}
+    @Value("${rate.limit.window-ms:60000}")
+    private long WINDOW_MS;
+
+    private record Bucket(int count, long windowStart) {
+    }
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
 

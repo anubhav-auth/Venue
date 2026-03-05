@@ -4,6 +4,7 @@ import com.anubhavauth.venue.repository.AdminUserRepository;
 import com.anubhavauth.venue.entity.AdminUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -16,6 +17,16 @@ public class DataSeeder implements ApplicationRunner {
 
     private final AdminUserRepository adminUserRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+
+    @Value("${admin.default.username:admin}")
+    private String defaultUsername;
+
+    @Value("${admin.default.password:admin123}")
+    private String defaultPassword;
+
+    @Value("${admin.full.name:System Administrator}")
+    private String fullName;
+
 
     @Override
     public void run(ApplicationArguments args) {

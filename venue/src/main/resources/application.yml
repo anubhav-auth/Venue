@@ -1,13 +1,13 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: venue
   datasource:
-    url: jdbc:postgresql://localhost:5432/venue_db
-    username: venue_user
-    password: venue_pass
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:venuedb}
+    username: ${POSTGRES_USER:venueuser}
+    password: ${POSTGRES_PASSWORD:venuepass}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -19,15 +19,15 @@ spring:
         format_sql: true
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 jwt:
-  secret: venue-super-secret-key-must-be-at-least-64-characters-long-for-hs512-algo
-  expiration: 86400000
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 bcrypt:
-  cost: 12
+  cost: ${BCRYPT_COST:12}
 
 csv:
   validDegrees:
@@ -52,10 +52,25 @@ csv:
       floor: "Floor"
       day: "Day"
       seatsPerRow: "SeatsPerRow"
+
 app:
-  qr-secret: venue-qr-secret-key-change-in-production
+  qr-secret: ${QR_SECRET}
+
 cors:
-  allowed-origins:
-    - http://localhost:3000    # React dev (CRA)
-    - http://localhost:5173    # React dev (Vite)
-    - http://localhost:4173    # Vite preview
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
+admin:
+  default:
+    username: ${ADMIN_DEFAULT_USERNAME:admin}
+    password: ${ADMIN_DEFAULT_PASSWORD:admin123}
+  full:
+    name: ${ADMIN_FULL_NAME:System Administrator}
+
+rate:
+  limit:
+    max-attempts: ${RATE_LIMIT_MAX_ATTEMPTS:10}
+    window-ms: ${RATE_LIMIT_WINDOW_MS:60000}
+
+qr:
+  code:
+    size: ${QR_CODE_SIZE:300}
