@@ -216,15 +216,6 @@ public class VerifierController {
 
         Room room = assignment.get().getRoom();
 
-        checkInRepository.save(CheckIn.builder()
-                .student(student)
-                .room(room)
-                .seatNumber(seatNumber)
-                .verifier(verifier)
-                .method("qrscan")
-                .day(day)
-                .build());
-
         CheckIn saved = checkInRepository.save(CheckIn.builder()
                 .student(student)
                 .room(room)
