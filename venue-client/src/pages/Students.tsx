@@ -27,7 +27,7 @@ export default function Students() {
         ))}
       </div>
 
-      {tab === 'import' && <ImportTab qc={qc}/>}
+      {tab === 'import' && <ImportTab />}
       {tab === 'volunteers' && <VolunteersTab qc={qc} />}
       {tab === 'verifiers' && <VerifiersTab qc={qc} />}
     </div>
@@ -35,7 +35,7 @@ export default function Students() {
 }
 
 // REPLACE the entire function ImportTab:
-function ImportTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
+function ImportTab() {
   const audience = useCsvUpload(uploadAudienceCsv, pollAudienceUploadStatus, ['students'])
   const volunteers = useCsvUpload(uploadVolunteerCsv, pollVolunteerUploadStatus, ['students'])
 
