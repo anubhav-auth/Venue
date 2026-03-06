@@ -23,7 +23,8 @@ import java.time.LocalDateTime;
 public class Student {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "student_seq")
+    @SequenceGenerator(name = "student_seq", sequenceName = "student_seq", allocationSize = 100)
     private Long id;
 
     @Column(name = "reg_no", length = 50, nullable = false, unique = true)

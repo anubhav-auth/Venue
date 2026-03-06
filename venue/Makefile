@@ -10,7 +10,7 @@ db-stop:
 	docker compose down
 
 db-connect:
-	docker exec -it venue_postgres psql -U venue_user -d venue_db
+	docker exec -it venue_postgres psql -U venueuser -d venuedb
 
 redis-connect:
 	docker exec -it venue_redis redis-cli

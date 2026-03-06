@@ -1,12 +1,13 @@
 // src/pages/Students.tsx
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { uploadAudienceCsv, uploadVolunteerCsv, getVolunteers, adminScanVolunteer, promoteVolunteer, getVerifiers, demoteVerifier } from '@/api/volunteers'
+import { uploadAudienceCsv, uploadVolunteerCsv, getVolunteers, adminScanVolunteer, promoteVolunteer, getVerifiers, demoteVerifier, pollAudienceUploadStatus, pollVolunteerUploadStatus } from '@/api/volunteers'
 import { getRooms } from '@/api/rooms'
 import CsvUploadZone from '@/components/CsvUploadZone'
 import toast from 'react-hot-toast'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Camera, CameraOff, UserCheck, UserX } from 'lucide-react'
+import { useCsvUpload } from '../hooks/useCsvUpload'
 
 type Tab = 'import' | 'volunteers' | 'verifiers'
 
@@ -26,30 +27,45 @@ export default function Students() {
         ))}
       </div>
 
-      {tab === 'import' && <ImportTab />}
+      {tab === 'import' && <ImportTab qc={qc}/>}
       {tab === 'volunteers' && <VolunteersTab qc={qc} />}
       {tab === 'verifiers' && <VerifiersTab qc={qc} />}
     </div>
   )
 }
 
-function ImportTab() {
-  useQueryClient()
+// REPLACE the entire function ImportTab:
+function ImportTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
+  const audience = useCsvUpload(uploadAudienceCsv, pollAudienceUploadStatus, ['students'])
+  const volunteers = useCsvUpload(uploadVolunteerCsv, pollVolunteerUploadStatus, ['students'])
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="bg-white rounded-xl border p-6 space-y-3">
         <h2 className="font-semibold text-sm">Audience CSV Upload</h2>
         <p className="text-xs text-gray-400">Required columns: Name, Regdno, Emailid, Degree, Contactno, Passoutyear</p>
-        <CsvUploadZone label="Audience" onUpload={uploadAudienceCsv} />
+        <CsvUploadZone label="Audience" onUpload={audience.upload} />
+        {audience.status === 'processing' && (
+          <p className="text-xs text-indigo-500 animate-pulse">⏳ Processing in background…</p>
+        )}
+        {audience.status === 'done' && <p className="text-xs text-green-600">{audience.msg}</p>}
+        {audience.status === 'error' && <p className="text-xs text-red-500">{audience.msg}</p>}
       </div>
+
       <div className="bg-white rounded-xl border p-6 space-y-3">
         <h2 className="font-semibold text-sm">Volunteer CSV Upload</h2>
         <p className="text-xs text-gray-400">Same columns as audience. QR generated automatically on import.</p>
-        <CsvUploadZone label="Volunteers" onUpload={uploadVolunteerCsv} />
+        <CsvUploadZone label="Volunteers" onUpload={volunteers.upload} />
+        {volunteers.status === 'processing' && (
+          <p className="text-xs text-indigo-500 animate-pulse">⏳ Processing in background…</p>
+        )}
+        {volunteers.status === 'done' && <p className="text-xs text-green-600">{volunteers.msg}</p>}
+        {volunteers.status === 'error' && <p className="text-xs text-red-500">{volunteers.msg}</p>}
       </div>
     </div>
   )
 }
+
 
 function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const [promoteModal, setPromoteModal] = useState<{ open: boolean; id?: number; name?: string }>({ open: false })

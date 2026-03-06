@@ -11,6 +11,12 @@ export interface VolunteerDto {
   canPromote: boolean
 }
 
+export interface UploadStatus {
+  status: 'PROCESSING' | 'DONE' | 'ERROR'
+  result?: { imported: number; skipped: number; errors: number; rowErrors: { row: number; reason: string }[] }
+  message?: string
+}
+
 export interface VerifierDto {
   id: number
   username: string
@@ -36,15 +42,17 @@ export const demoteVerifier = (id: number) =>
 export const uploadVolunteerCsv = (file: File) => {
   const form = new FormData()
   form.append('file', file)
-  return api.post<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }>(
-    'admin/volunteers/upload', form
-  )
+  return api.post<{ jobId: string }>('/admin/volunteers/upload', form)
 }
 
 export const uploadAudienceCsv = (file: File) => {
   const form = new FormData()
   form.append('file', file)
-  return api.post<{ imported: number; skipped: number; errors: { row: number; reason: string }[] }>(
-    'admin/audience/upload', form
-  )
+  return api.post<{ jobId: string }>('/admin/audience/upload', form)
 }
+
+export const pollVolunteerUploadStatus = (jobId: string) =>
+  api.get<UploadStatus>(`/admin/volunteers/upload/status/${jobId}`)
+
+export const pollAudienceUploadStatus = (jobId: string) =>
+  api.get<UploadStatus>(`/admin/audience/upload/status/${jobId}`)

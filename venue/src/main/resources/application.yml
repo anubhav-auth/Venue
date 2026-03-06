@@ -17,6 +17,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -27,7 +31,7 @@ jwt:
   expiration: ${JWT_EXPIRATION:86400000}
 
 bcrypt:
-  cost: ${BCRYPT_COST:12}
+  cost: ${BCRYPT_COST:8}
 
 csv:
   validDegrees:

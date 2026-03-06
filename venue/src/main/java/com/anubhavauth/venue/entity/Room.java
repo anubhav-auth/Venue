@@ -21,7 +21,8 @@ import java.time.LocalDateTime;
 public class Room {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "room_seq")
+    @SequenceGenerator(name = "room_seq", sequenceName = "room_seq", allocationSize = 100)
     private Long id;
 
     @Column(name = "room_name", length = 255, nullable = false)
