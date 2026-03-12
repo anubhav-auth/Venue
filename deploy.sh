@@ -7,14 +7,18 @@ cd "$REPO_DIR"
 echo "▶ Pulling latest changes..."
 git pull origin main
 
+# ── Frontend ────────────────────────────────────────────────────────────────
 echo "▶ Building frontend..."
 cd venue-client
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 cd ..
 
+# ── Backend ─────────────────────────────────────────────────────────────────
 echo "▶ Building backend..."
+cd venue
 ./mvnw clean package -DskipTests -q
+cd ..
 
 echo "▶ Restarting service..."
 sudo systemctl restart venue
