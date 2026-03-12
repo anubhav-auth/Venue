@@ -16,13 +16,10 @@ pnpm install --frozen-lockfile
 pnpm run build
 cd ..
 
-echo "▶ Building backend..."
+echo "▶ Building and restarting backend (Docker)..."
 cd venue
-./mvnw clean package -DskipTests -q
+docker compose up --build -d
 cd ..
 
-echo "▶ Restarting service..."
-sudo systemctl restart venue
-
 echo "✅ Deploy complete!"
-sudo systemctl status venue --no-pager
+docker compose -f venue/docker-compose.yml ps
