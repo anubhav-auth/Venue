@@ -41,8 +41,8 @@ export default function CheckIn() {
         try {
           const r = await checkIn(text)
           const d = r.data
-          showResult('success', `✅ ${d.studentName} — Seat ${d.seatNumber}`)
-          setScans(p => [{ name: d.studentName, seat: d.seatNumber, success: true, time: new Date().toLocaleTimeString() }, ...p.slice(0, 9)])
+          showResult('success', `✅ ${d.name} — Seat ${d.seatNumber}`)
+          setScans(p => [{ name: d.name ?? '', seat: d.seatNumber ?? '', success: true, time: new Date().toLocaleTimeString() }, ...p.slice(0, 9)])
         } catch (e: any) {
           const msg = e.response?.data?.message || e.response?.data?.error || 'Invalid QR'
           if (msg.toLowerCase().includes('already')) showResult('duplicate', `⚠️ Already checked in`)

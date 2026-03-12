@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { Building2, Users, LayoutGrid, QrCode, LogOut, LayoutDashboard } from 'lucide-react'
+import { Building2, Users, LogOut, LayoutDashboard } from 'lucide-react'
 import clsx from 'clsx'
 
 

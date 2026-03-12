@@ -6,9 +6,9 @@ import { addReview } from '@/api/reviews'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
-const QR_FPS     = Number(import.meta.env.VITE_QR_FPS)                || 10
-const QR_BOX_W   = Number(import.meta.env.VITE_QR_BOX_WIDTH)          || 240
-const QR_BOX_H   = Number(import.meta.env.VITE_QR_BOX_HEIGHT)         || 240
+const QR_FPS = Number(import.meta.env.VITE_QR_FPS) || 10
+const QR_BOX_W = Number(import.meta.env.VITE_QR_BOX_WIDTH) || 240
+const QR_BOX_H = Number(import.meta.env.VITE_QR_BOX_HEIGHT) || 240
 const REFETCH_MS = Number(import.meta.env.VITE_STATS_REFETCH_INTERVAL) || 30_000
 
 type ScanState = 'idle' | 'success' | 'duplicate' | 'error'
@@ -120,20 +120,20 @@ export default function VerifierScan() {
         setRecentScans((prev) => [
           {
             id: Date.now().toString(),
-            name: '—',
+            name: 'Unknown',
             seatNumber: null,
-            result: 'error',
-            message: err?.response?.data?.message ?? 'Invalid QR',
+            result: 'error' as ScanState,
+            message: err?.response?.data?.message ?? 'Scan failed',
             time: new Date(),
           },
           ...prev,
         ].slice(0, 10))
-        // Error: auto-dismiss after 1500ms
         setTimeout(() => {
           setScanState('idle')
           processingRef.current = false
         }, 1500)
       }
+
     },
     [selectedDay, refetchStats]
   )
@@ -147,11 +147,11 @@ export default function VerifierScan() {
         { facingMode: 'environment' },
         { fps: QR_FPS, qrbox: { width: QR_BOX_W, height: QR_BOX_H } },
         handleScanSuccess,
-        () => {}
+        () => { }
       )
       .catch(() => setScannerActive(false))
     return () => {
-      scanner.stop().catch(() => {})
+      scanner.stop().catch(() => { })
     }
   }, [scannerActive, handleScanSuccess])
 
@@ -178,11 +178,10 @@ export default function VerifierScan() {
             <button
               key={d}
               onClick={() => setSelectedDay(d)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedDay === d
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
-              }`}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${selectedDay === d
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
+                }`}
             >
               {d === 'day1' ? 'Day 1' : 'Day 2'}
             </button>
@@ -200,8 +199,8 @@ export default function VerifierScan() {
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
               { label: 'Checked In', value: stats.checkedInCount, color: 'text-green-600' },
-              { label: 'Remaining',  value: stats.remaining,      color: 'text-orange-500' },
-              { label: 'Capacity',   value: stats.capacity,       color: 'text-gray-700'  },
+              { label: 'Remaining', value: stats.remaining, color: 'text-orange-500' },
+              { label: 'Capacity', value: stats.capacity, color: 'text-gray-700' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-gray-50 rounded-lg py-2">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -211,30 +210,27 @@ export default function VerifierScan() {
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                stats.status === 'high' ? 'bg-green-500' :
+              className={`h-full rounded-full transition-all duration-500 ${stats.status === 'high' ? 'bg-green-500' :
                 stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
-              }`}
+                }`}
               style={{ width: `${Math.min(stats.percentage, 100)}%` }}
             />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-400">{stats.percentage.toFixed(1)}% filled</span>
-            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-              stats.status === 'high' ? 'text-green-700 bg-green-50' :
+            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${stats.status === 'high' ? 'text-green-700 bg-green-50' :
               stats.status === 'medium' ? 'text-yellow-700 bg-yellow-50' :
-              'text-red-700 bg-red-50'
-            }`}>{stats.status.toUpperCase()}</span>
+                'text-red-700 bg-red-50'
+              }`}>{stats.status.toUpperCase()}</span>
           </div>
         </div>
       )}
 
       {/* Student info card (after scan) — Fix 5: persists until Next Scan is clicked */}
       {scanState !== 'idle' && lastResult && (
-        <div className={`rounded-xl p-4 text-white ${
-          scanState === 'success' ? 'bg-green-500' :
+        <div className={`rounded-xl p-4 text-white ${scanState === 'success' ? 'bg-green-500' :
           scanState === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
-        }`}>
+          }`}>
           <p className="font-bold text-xl">{scanStateLabel[scanState]}</p>
           {lastResult.name && <p className="text-lg font-semibold mt-1">{lastResult.name}</p>}
           {lastResult.regNo && <p className="text-sm opacity-80">{lastResult.regNo}</p>}
@@ -321,7 +317,7 @@ export default function VerifierScan() {
             )}
             <div id="qr-reader-scan" className="w-full" />
             <button
-              onClick={() => { setScannerActive(false); scannerRef.current?.stop().catch(() => {}) }}
+              onClick={() => { setScannerActive(false); scannerRef.current?.stop().catch(() => { }) }}
               className="absolute top-2 right-2 z-10 bg-white rounded-full p-1.5 shadow-md"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -346,10 +342,9 @@ export default function VerifierScan() {
                     {scan.time.toLocaleTimeString()}
                   </p>
                 </div>
-                <span className={`w-3 h-3 rounded-full ${
-                  scan.result === 'success' ? 'bg-green-500' :
+                <span className={`w-3 h-3 rounded-full ${scan.result === 'success' ? 'bg-green-500' :
                   scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
-                }`} />
+                  }`} />
               </div>
             ))}
           </div>
