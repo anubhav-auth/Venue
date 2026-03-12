@@ -21,6 +21,8 @@ export default function Login() {
         data.role,
         data.username,
         data.name,
+        data.isTeamLead ?? false,
+        data.assignedRoomId ?? null,
         data.assignments,
       );
       navigate("/");

@@ -16,5 +16,6 @@ public class RoomResponse {
     private String building;
     private String floor;
     private String day;
+    private int skipRows;
     private LocalDateTime createdAt;
 }

@@ -8,9 +8,11 @@ export interface StudentAssignmentDto {
   roomName: string | null
   building: string | null
   floor: string | null
-  seatNumber: string | null
+  seatNumber: string | null   // null until check-in scan assigns one
   day: string | null
   qrCodeData: string | null
+  checkedIn: boolean
+  checkInTime: string | null  // ISO 8601 datetime string
 }
 
 export const getStudentAssignment = () =>

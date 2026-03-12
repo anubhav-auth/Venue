@@ -12,7 +12,10 @@ import CheckIn from "@/pages/CheckIn";
 import Dashboard from "@/pages/Dashboard";
 import RoomDetail from "@/pages/RoomDetail";
 import StudentDashboard from "@/pages/StudentDashboard"; // Added import for the Student Portal
-import VerifierDashboard from "./pages/VerifierDashboard";
+import VerifierLayout     from './layouts/VerifierLayout'
+import VerifierScan       from './pages/verifier/VerifierScan'
+import VerifierRoom       from './pages/verifier/VerifierRoom'
+import VerifierVolunteers from './pages/verifier/VerifierVolunteers'
 import VolunteerDashboard from "./pages/VolunteerDashboard";
 
 // ── Error Boundary ──────────────────────────────────────────────────────────
@@ -193,11 +196,14 @@ export default function App() {
             <Route
               path="/verifier"
               element={
-                <VerifierGuard>
-                  <VerifierDashboard />
-                </VerifierGuard>
+                <VerifierGuard><VerifierLayout /></VerifierGuard>
               }
-            />
+            >
+              <Route index element={<Navigate to="scan" replace />} />
+              <Route path="scan"       element={<VerifierScan />} />
+              <Route path="room"       element={<VerifierRoom />} />
+              <Route path="volunteers" element={<VerifierVolunteers />} />
+            </Route>
 
             {/* Fallback Router */}
             <Route path="*" element={<FallbackRedirect />} />

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/rooms")
@@ -45,14 +45,24 @@ public class RoomDetailController {
         // All seat assignments for this room+day
         List<SeatAssignment> assignments = seatAssignmentRepository.findByRoomIdAndDay(id, day);
 
+        // Batch-load all active CheckIns for this room+day in ONE query — no N+1
+        Map<Long, CheckIn> checkInByStudentId = checkInRepository
+                .findByRoomIdAndDayAndDeletedAtIsNull(id, day)
+                .stream()
+                .collect(Collectors.toMap(
+                        c -> c.getStudent().getId(),
+                        c -> c,
+                        (a, b) -> a   // keep first if somehow duplicate
+                ));
+
         List<RoomDetailDto.SeatInfo> seats = assignments.stream()
                 .filter(sa -> sa.getSeatNumber() != null)       // regular seats
-                .map(sa -> buildSeatInfo(sa, day))
+                .map(sa -> buildSeatInfo(sa, checkInByStudentId))
                 .toList();
 
         List<RoomDetailDto.SeatInfo> overflow = assignments.stream()
                 .filter(sa -> sa.getSeatNumber() == null)       // overflow
-                .map(sa -> buildSeatInfo(sa, day))
+                .map(sa -> buildSeatInfo(sa, checkInByStudentId))
                 .toList();
 
         return ResponseEntity.ok(RoomDetailDto.builder()
@@ -63,22 +73,17 @@ public class RoomDetailController {
                 .day(day)
                 .capacity(room.getCapacity())
                 .seatsPerRow(room.getSeatsPerRow())
+                .skipRows(room.getSkipRows())
                 .assignedVerifiers(verifiers)
                 .seats(seats)
                 .overflow(overflow)
                 .build());
     }
 
-    private RoomDetailDto.SeatInfo buildSeatInfo(SeatAssignment sa, String day) {
+    private RoomDetailDto.SeatInfo buildSeatInfo(SeatAssignment sa,
+                                                  Map<Long, CheckIn> checkInByStudentId) {
         Student student = sa.getStudent();
-
-        // Find active check-in for this student on this day
-        Optional<CheckIn> checkIn = checkInRepository
-                .findAll().stream()
-                .filter(c -> c.getStudent().getId().equals(student.getId())
-                        && c.getDay().equals(day)
-                        && c.getDeletedAt() == null)
-                .findFirst();
+        CheckIn checkIn = checkInByStudentId.get(student.getId());
 
         return RoomDetailDto.SeatInfo.builder()
                 .studentId(student.getId())
@@ -87,11 +92,12 @@ public class RoomDetailController {
                 .degree(student.getDegree())
                 .passoutYear(student.getPassoutYear())
                 .seatNumber(sa.getSeatNumber())
-                .checkedIn(checkIn.isPresent())
-                .checkInTime(checkIn.map(CheckIn::getCheckInTime).orElse(null))
-                .verifierUsername(checkIn
-                        .map(c -> c.getVerifier() != null ? c.getVerifier().getUsername() : "admin")
-                        .orElse(null))
+                .checkedIn(checkIn != null)
+                .checkInTime(checkIn != null ? checkIn.getCheckInTime() : null)
+                .verifierUsername(checkIn != null
+                        ? (checkIn.getVerifier() != null ? checkIn.getVerifier().getUsername() : "admin")
+                        : null)
+                .checkInId(checkIn != null ? checkIn.getId() : null)
                 .build();
     }
 }

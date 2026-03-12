@@ -52,8 +52,10 @@ public class AuthService {
         if (verifierOpt.isPresent()) {
             Verifier verifier = verifierOpt.get();
             if (passwordEncoder.matches(password, verifier.getPasswordHash())) {
+                // TEAM_LEAD if isTeamLead=true, otherwise VERIFIER
+                String role = verifier.isTeamLead() ? "TEAM_LEAD" : "VERIFIER";
                 String token = jwtUtil.generateToken(
-                        verifier.getId(), verifier.getUsername(), "VERIFIER", verifier.getName()
+                        verifier.getId(), verifier.getUsername(), role, verifier.getName()
                 );
                 List<LoginResponse.VerifierAssignmentDto> assignments = verifier.getAssignments()
                         .stream()
@@ -67,8 +69,11 @@ public class AuthService {
                         .token(token)
                         .userId(verifier.getId())
                         .username(verifier.getUsername())
-                        .role("VERIFIER")
+                        .role(role)
                         .name(verifier.getName())
+                        .isTeamLead(verifier.isTeamLead())
+                        .assignedRoomId(verifier.getAssignedRoom() != null
+                                ? verifier.getAssignedRoom().getId() : null)
                         .assignments(assignments)
                         .build();
             }

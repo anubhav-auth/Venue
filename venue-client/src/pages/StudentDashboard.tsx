@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, Download, QrCode } from 'lucide-react'
+import { MapPin, Download, QrCode, CheckCircle2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { getStudentAssignment, downloadStudentQr } from '@/api/studentPortal'
 import toast from 'react-hot-toast'
@@ -8,10 +8,12 @@ import { useEffect, useState } from 'react'
 export default function StudentDashboard() {
   const { username, logout } = useAuthStore()
   const [qrUrl, setQrUrl] = useState<string | null>(null)
+  const [seatVisible, setSeatVisible] = useState(false)
 
   const { data: assignment, isLoading, error } = useQuery({
     queryKey: ['studentAssignment'],
     queryFn: () => getStudentAssignment().then(r => r.data),
+    refetchInterval: 10_000,  // poll every 10 seconds for seat assignment
   })
 
   // Fetch QR as blob once we know the day
@@ -21,6 +23,17 @@ export default function StudentDashboard() {
       .then(r => setQrUrl(URL.createObjectURL(new Blob([r.data]))))
       .catch(() => {})
   }, [assignment?.day])
+
+  // Animate seat number appearance when checkedIn first becomes true
+  useEffect(() => {
+    if (assignment?.checkedIn && assignment.seatNumber) {
+      setSeatVisible(false)
+      const t = setTimeout(() => setSeatVisible(true), 150)
+      return () => clearTimeout(t)
+    } else {
+      setSeatVisible(false)
+    }
+  }, [assignment?.checkedIn, assignment?.seatNumber])
 
   const handleDownloadQR = () => {
     if (!qrUrl) return
@@ -45,6 +58,8 @@ export default function StudentDashboard() {
   )
 
   const hasAssignment = !!assignment?.roomName
+  const isCheckedIn = assignment?.checkedIn === true
+  const seatNumber = assignment?.seatNumber
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -69,15 +84,26 @@ export default function StudentDashboard() {
           </div>
         ) : (
           <>
-            {/* Seat Card */}
-            <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-100">
+            {/* Room + Assignment Card */}
+            <div className={`rounded-xl p-6 border transition-colors duration-500 ${
+              isCheckedIn
+                ? 'bg-green-50 border-green-200'
+                : 'bg-indigo-50 border-indigo-100'
+            }`}>
               <div className="flex items-start gap-4">
-                <div className="p-3 bg-indigo-100 rounded-lg text-indigo-600">
-                  <MapPin size={24} />
+                <div className={`p-3 rounded-lg ${
+                  isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'
+                }`}>
+                  {isCheckedIn ? <CheckCircle2 size={24} /> : <MapPin size={24} />}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                  <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">
                     {assignment.day === 'day1' ? 'Day 1' : 'Day 2'}
+                    {isCheckedIn && (
+                      <span className="ml-2 inline-flex items-center gap-1 text-green-600 text-xs normal-case font-semibold">
+                        ✓ Checked In
+                      </span>
+                    )}
                   </p>
                   <h2 className="text-2xl font-black text-gray-900 mt-1">{assignment.roomName}</h2>
                   <p className="text-sm text-gray-600 mt-1">
@@ -85,12 +111,30 @@ export default function StudentDashboard() {
                   </p>
                 </div>
               </div>
-              <div className="mt-5 inline-block bg-white px-5 py-3 rounded-lg border border-indigo-200 shadow-sm">
-                <span className="text-xs text-gray-500 uppercase font-semibold">Seat Number</span>
-                <p className="text-3xl font-black text-indigo-600">
-                  {assignment.seatNumber ?? 'Overflow'}
-                </p>
-              </div>
+
+              {/* Seat number — animated on first appearance */}
+              {seatNumber ? (
+                <div
+                  className={`mt-5 inline-block px-5 py-3 rounded-lg border shadow-sm transition-all duration-700 ${
+                    isCheckedIn ? 'bg-white border-green-200' : 'bg-white border-indigo-200'
+                  } ${seatVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
+                  style={{ transitionProperty: 'opacity, transform' }}
+                >
+                  <span className="text-xs text-gray-500 uppercase font-semibold block">Seat Number</span>
+                  <p className={`text-4xl font-black mt-0.5 ${
+                    isCheckedIn ? 'text-green-600' : 'text-indigo-600'
+                  }`}>
+                    {seatNumber}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 bg-white/70 px-5 py-3 rounded-lg border border-dashed border-indigo-200">
+                  <span className="text-xs text-gray-400 uppercase font-semibold block">Seat Number</span>
+                  <p className="text-sm text-gray-400 mt-0.5 animate-pulse">
+                    Will appear after check-in scan…
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* QR Code */}

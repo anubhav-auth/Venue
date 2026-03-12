@@ -1,5 +1,5 @@
 // src/pages/Rooms.tsx
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getRooms,
@@ -10,9 +10,10 @@ import {
   Room,
   pollRoomUploadStatus,
 } from "@/api/rooms";
+import { uploadRoster, pollRosterStatus } from "@/api/roster";
 import CsvUploadZone from "@/components/CsvUploadZone";
 import toast from "react-hot-toast";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Loader2 } from "lucide-react";
 import { useCsvUpload } from "../hooks/useCsvUpload";
 
 const DAYS = ["day1", "day2"] as const;
@@ -23,6 +24,7 @@ const emptyForm: {
   capacity: number;
   seatsPerRow: number;
   day: "day1" | "day2";
+  skipRows: number;
 } = {
   roomName: "",
   building: "",
@@ -30,7 +32,16 @@ const emptyForm: {
   capacity: 0,
   seatsPerRow: 10,
   day: "day1",
+  skipRows: 0,
 };
+
+interface RosterUploadState {
+  roomId: number | null;
+  uploading: boolean;
+  jobId: string | null;
+  status: "idle" | "uploading" | "processing" | "done" | "error";
+  msg: string;
+}
 
 export default function Rooms() {
   const [day, setDay] = useState<"day1" | "day2">("day1");
@@ -38,6 +49,16 @@ export default function Rooms() {
     open: false,
   });
   const [form, setForm] = useState(emptyForm);
+  const [rosterState, setRosterState] = useState<RosterUploadState>({
+    roomId: null,
+    uploading: false,
+    jobId: null,
+    status: "idle",
+    msg: "",
+  });
+  const rosterInputRef = useRef<HTMLInputElement>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const qc = useQueryClient();
   const roomUpload = useCsvUpload(uploadRoomCsv, pollRoomUploadStatus, [
     "rooms",
@@ -75,12 +96,83 @@ export default function Rooms() {
       capacity: room.capacity,
       seatsPerRow: room.seatsPerRow,
       day: room.day,
+      skipRows: (room as any).skipRows ?? 0,
     });
     setModal({ open: true, room });
   };
+
   const openNew = () => {
     setForm({ ...emptyForm, day });
     setModal({ open: true });
+  };
+
+  // ── Roster upload ─────────────────────────────────────────────────────────
+  const triggerRosterUpload = (roomId: number) => {
+    setRosterState({
+      roomId,
+      uploading: false,
+      jobId: null,
+      status: "idle",
+      msg: "",
+    });
+    rosterInputRef.current?.click();
+    // Store current room id in data attribute
+    if (rosterInputRef.current) {
+      rosterInputRef.current.dataset.roomId = String(roomId);
+    }
+  };
+
+  const handleRosterFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const roomId = Number(rosterInputRef.current?.dataset.roomId);
+    if (!file || !roomId) return;
+    e.target.value = "";
+
+    setRosterState((s) => ({ ...s, status: "uploading", uploading: true }));
+    try {
+      const { data } = await uploadRoster(roomId, day, file);
+      const jobId = data.jobId;
+      setRosterState((s) => ({ ...s, jobId, status: "processing" }));
+      toast("Processing roster…", { icon: "⏳" });
+
+      // Poll for completion
+      const poll = async () => {
+        try {
+          const { data: statusData } = await pollRosterStatus(roomId, jobId);
+          if (statusData.status === "PROCESSING") {
+            pollingRef.current = setTimeout(poll, 1500);
+          } else if (statusData.status === "DONE") {
+            const r = statusData.result!;
+            setRosterState((s) => ({
+              ...s,
+              status: "done",
+              uploading: false,
+              msg: `✅ Imported ${r.imported}, Skipped ${r.skipped}, Errors ${r.errors}`,
+            }));
+            toast.success(`Roster imported: ${r.imported} students`);
+          } else {
+            setRosterState((s) => ({
+              ...s,
+              status: "error",
+              uploading: false,
+              msg: statusData.message ?? "Upload failed",
+            }));
+            toast.error(statusData.message ?? "Roster upload failed");
+          }
+        } catch {
+          setRosterState((s) => ({ ...s, status: "error", uploading: false }));
+        }
+      };
+      pollingRef.current = setTimeout(poll, 1500);
+    } catch (err: any) {
+      setRosterState((s) => ({
+        ...s,
+        status: "error",
+        uploading: false,
+        msg: err?.response?.data?.message ?? "Upload failed",
+      }));
+      toast.error("Roster upload failed");
+    }
   };
 
   return (
@@ -108,12 +200,21 @@ export default function Rooms() {
         ))}
       </div>
 
+      {/* Hidden roster file input */}
+      <input
+        ref={rosterInputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleRosterFile}
+      />
+
       {/* Table */}
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
-              {["Room", "Building", "Floor", "Capacity", "Seats/Row", ""].map(
+              {["Room", "Building", "Floor", "Capacity", "Seats/Row", "Skip Rows", "Roster", ""].map(
                 (h) => (
                   <th key={h} className="px-4 py-3 text-left">
                     {h}
@@ -130,6 +231,30 @@ export default function Rooms() {
                 <td className="px-4 py-3 text-gray-500">{r.floor}</td>
                 <td className="px-4 py-3">{r.capacity}</td>
                 <td className="px-4 py-3">{r.seatsPerRow}</td>
+                <td className="px-4 py-3 text-gray-500">{(r as any).skipRows ?? 0}</td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => triggerRosterUpload(r.id)}
+                    disabled={
+                      rosterState.roomId === r.id &&
+                      (rosterState.status === "uploading" ||
+                        rosterState.status === "processing")
+                    }
+                    className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+                  >
+                    {rosterState.roomId === r.id &&
+                    (rosterState.status === "uploading" ||
+                      rosterState.status === "processing") ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Upload size={12} />
+                    )}
+                    {rosterState.roomId === r.id &&
+                    rosterState.status === "done"
+                      ? "Uploaded ✓"
+                      : "Upload Roster"}
+                  </button>
+                </td>
                 <td className="px-4 py-3 flex gap-2 justify-end">
                   <button
                     onClick={() => openEdit(r)}
@@ -150,7 +275,7 @@ export default function Rooms() {
             ))}
             {rooms.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                   No rooms yet
                 </td>
               </tr>
@@ -194,7 +319,7 @@ export default function Rooms() {
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               />
             ))}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <input
                 type="number"
                 placeholder="Capacity"
@@ -210,6 +335,17 @@ export default function Rooms() {
                 value={form.seatsPerRow}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, seatsPerRow: +e.target.value }))
+                }
+                className="border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                type="number"
+                min={0}
+                placeholder="Skip Rows"
+                value={form.skipRows}
+                title="Number of rows to reserve at the front"
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, skipRows: +e.target.value }))
                 }
                 className="border rounded-lg px-3 py-2 text-sm"
               />

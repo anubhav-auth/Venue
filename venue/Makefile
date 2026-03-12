@@ -3,7 +3,7 @@
 db-start:
 	docker compose up -d postgres redis
 	@echo "Waiting for postgres to be healthy..."
-	@until docker exec venue_postgres pg_isready -U venue_user -d venue_db > /dev/null 2>&1; do sleep 1; done
+	@until docker exec venue_postgres pg_isready -U venueuser -d venuedb > /dev/null 2>&1; do sleep 1; done
 	@echo "PostgreSQL is ready."
 
 db-stop:

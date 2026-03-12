@@ -11,6 +11,7 @@ export interface SeatData {
   checkedIn: boolean
   checkInTime: string | null
   verifierUsername: string | null
+  checkInId: number | null
 }
 
 export interface RoomDetailResponse {
@@ -20,6 +21,7 @@ export interface RoomDetailResponse {
   floor: string
   capacity: number
   seatsPerRow: number
+  skipRows: number
   day: string
   assignedVerifiers: string[]
   seats: SeatData[]

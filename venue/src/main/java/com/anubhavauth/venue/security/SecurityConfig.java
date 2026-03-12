@@ -44,13 +44,32 @@ public class SecurityConfig {
                         })
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // Public endpoints
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/student/auth/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
+
+                        // Admin — specific rules before the catch-all
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/api/admin/volunteers/*/mark-absent"
+                        ).hasAnyRole("ADMIN", "TEAM_LEAD")
+
+                        // Admin — catch-all (must come after specific rules)
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/verifier/**").hasRole("VERIFIER")
+
+                        // Check-in scan & reviews — verifiers, team leads, and admins
+                        .requestMatchers("/api/checkin/*/review").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
+                        .requestMatchers("/api/checkin/**").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
+
+                        // Verifier dashboard — VERIFIER, TEAM_LEAD, and ADMIN
+                        .requestMatchers("/api/verifier/**").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
+
+                        // Student portal — audience and volunteers
                         .requestMatchers("/api/student/**").hasAnyRole("AUDIENCE", "VOLUNTEER")
+
+                        // Everything else must be authenticated
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

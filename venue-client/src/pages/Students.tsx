@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { uploadAudienceCsv, uploadVolunteerCsv, getVolunteers, adminScanVolunteer, promoteVolunteer, getVerifiers, demoteVerifier, pollAudienceUploadStatus, pollVolunteerUploadStatus } from '@/api/volunteers'
+import { updateVerifier } from '@/api/verifier'
 import { getRooms } from '@/api/rooms'
 import CsvUploadZone from '@/components/CsvUploadZone'
 import toast from 'react-hot-toast'
@@ -208,35 +209,129 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
 
 function VerifiersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const { data: verifiers = [] } = useQuery({ queryKey: ['verifiers'], queryFn: () => getVerifiers().then(r => r.data) })
+  const { data: day1Rooms = [] } = useQuery({ queryKey: ['rooms', 'day1'], queryFn: () => getRooms('day1').then(r => r.data) })
+  const { data: day2Rooms = [] } = useQuery({ queryKey: ['rooms', 'day2'], queryFn: () => getRooms('day2').then(r => r.data) })
+
+  // Fix 8 — local edit state per verifier row (keyed by id)
+  const [editMap, setEditMap] = useState<
+    Record<number, { isTeamLead: boolean; assignedRoomId: number | null }>
+  >({})
+
+  // Helper: get current edit (falls back to server data)
+  const getEdit = (v: typeof verifiers[number]) =>
+    editMap[v.id] ?? { isTeamLead: v.isTeamLead, assignedRoomId: v.assignedRoomId }
+
+  const allRooms = [...day1Rooms, ...day2Rooms]
 
   const demote = useMutation({
     mutationFn: (id: number) => demoteVerifier(id),
     onSuccess: () => { toast.success('Demoted'); qc.invalidateQueries({ queryKey: ['verifiers'] }); qc.invalidateQueries({ queryKey: ['volunteers'] }) }
   })
 
+  const updateTL = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: { isTeamLead: boolean; assignedRoomId: number | null } }) =>
+      updateVerifier(id, payload),
+    onSuccess: () => {
+      toast.success('Verifier updated')
+      qc.invalidateQueries({ queryKey: ['verifiers'] })
+      setEditMap({})
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error ?? 'Update failed'),
+  })
+
   return (
     <div className="bg-white rounded-xl border overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-          <tr>{['Username', 'Name', 'Assignments', ''].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+          <tr>
+            {['Username', 'Name', 'Assignments', 'Team Lead', 'Assigned Room', ''].map(h =>
+              <th key={h} className="px-4 py-3 text-left">{h}</th>
+            )}
+          </tr>
         </thead>
         <tbody className="divide-y">
           {verifiers.map(v => (
             <tr key={v.id} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-mono text-xs">{v.username}</td>
               <td className="px-4 py-3">{v.name}</td>
-              <td className="px-4 py-3 text-xs text-gray-500">{v.assignments.map(a => `${a.day === 'day1' ? 'D1' : 'D2'}: ${a.roomName}`).join(', ')}</td>
+              <td className="px-4 py-3 text-xs text-gray-500">
+                {v.assignments.map(a => `${a.day === 'day1' ? 'D1' : 'D2'}: ${a.roomName}`).join(', ')}
+                {/* Fix 8 Step 9 — TL badge when server has assignedRoomName */}
+                {v.isTeamLead && v.assignedRoomName && (
+                  <span className="ml-1 text-xs bg-purple-100 text-purple-700
+                                   px-2 py-0.5 rounded-full font-medium">
+                    TL: {v.assignedRoomName}
+                  </span>
+                )}
+              </td>
+              {/* Fix 8 Step 7 — Team Lead checkbox */}
               <td className="px-4 py-3">
-                <button onClick={() => { if (confirm(`Demote ${v.name}?`)) demote.mutate(v.id) }}
-                  className="flex items-center gap-1 px-3 py-1 text-xs bg-red-100 text-red-600 rounded-lg hover:bg-red-200">
-                  <UserX size={12} /> Demote
-                </button>
+                <input
+                  type="checkbox"
+                  checked={getEdit(v).isTeamLead}
+                  onChange={e => setEditMap(m => ({
+                    ...m,
+                    [v.id]: {
+                      ...getEdit(v),
+                      isTeamLead: e.target.checked,
+                      assignedRoomId: e.target.checked ? getEdit(v).assignedRoomId : null
+                    }
+                  }))}
+                  className="w-4 h-4 accent-indigo-600 cursor-pointer"
+                />
+              </td>
+              {/* Fix 8 Step 7 — Room selector (only visible when isTeamLead checked) */}
+              <td className="px-4 py-3">
+                {getEdit(v).isTeamLead ? (
+                  <select
+                    value={getEdit(v).assignedRoomId ?? ''}
+                    onChange={e => setEditMap(m => ({
+                      ...m,
+                      [v.id]: {
+                        ...getEdit(v),
+                        assignedRoomId: e.target.value ? Number(e.target.value) : null
+                      }
+                    }))}
+                    className="border rounded-lg px-2 py-1 text-xs"
+                  >
+                    <option value="">No Room</option>
+                    {allRooms.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.roomName} ({r.day === 'day1' ? 'D1' : 'D2'})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-gray-400">—</span>
+                )}
+              </td>
+              {/* Actions: Save (only if pending edits) + Demote */}
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-1">
+                  {/* Fix 8 Step 8 — Save button appears only when row has pending edits */}
+                  {editMap[v.id] && (
+                    <button
+                      onClick={() => updateTL.mutate({ id: v.id, payload: editMap[v.id] })}
+                      disabled={updateTL.isPending}
+                      className="flex items-center gap-1 px-3 py-1 text-xs
+                                 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700
+                                 disabled:opacity-60"
+                    >
+                      Save
+                    </button>
+                  )}
+                  <button onClick={() => { if (confirm(`Demote ${v.name}?`)) demote.mutate(v.id) }}
+                    className="flex items-center gap-1 px-3 py-1 text-xs bg-red-100 text-red-600 rounded-lg hover:bg-red-200">
+                    <UserX size={12} /> Demote
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
-          {verifiers.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">No verifiers yet</td></tr>}
+          {verifiers.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No verifiers yet</td></tr>}
         </tbody>
       </table>
     </div>
   )
 }
+

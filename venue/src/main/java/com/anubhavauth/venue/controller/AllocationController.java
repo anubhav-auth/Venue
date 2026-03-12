@@ -2,22 +2,19 @@ package com.anubhavauth.venue.controller;
 
 import com.anubhavauth.venue.dto.AllocationResultDto;
 import com.anubhavauth.venue.dto.AllocationSummaryDto;
+import com.anubhavauth.venue.dto.AllocationDto;
 import com.anubhavauth.venue.entity.Room;
 import com.anubhavauth.venue.entity.SeatAssignment;
 import com.anubhavauth.venue.entity.Student;
 import com.anubhavauth.venue.repository.SeatAssignmentRepository;
 import com.anubhavauth.venue.service.AllocationService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
-import com.anubhavauth.venue.dto.AllocationDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-
+import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
@@ -62,21 +59,37 @@ public class AllocationController {
         // Cap page size to prevent OOM on large datasets
         size = Math.min(size, 200);
 
-        List<SeatAssignment> all = seatAssignmentRepository.findAll();
+        // Normalize filters — pass null (not empty string) for unused filters
+        String dayFilter  = (day    != null && !day.isBlank())    ? day    : null;
+        Long   roomFilter = (roomId != null && !roomId.isBlank()) ?
+                                Long.parseLong(roomId) : null;
 
-        List<AllocationDto> filtered = all.stream().filter(sa -> day == null || day.isBlank() || sa.getDay().equals(day)).filter(sa -> roomId == null || roomId.isBlank() || sa.getRoom().getId().toString().equals(roomId)).map(sa -> {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<SeatAssignment> result =
+                seatAssignmentRepository.findWithFilters(dayFilter, roomFilter, pageable);
+
+        Page<AllocationDto> dtoPage = result.map(sa -> {
             Student s = sa.getStudent();
-            Room r = sa.getRoom();
-            return AllocationDto.builder().assignmentId(sa.getId()).studentId(s.getId()).regNo(s.getRegNo()).name(s.getName()).degree(s.getDegree()).passoutYear(s.getPassoutYear()).role(s.getRole()).roomId(r.getId()).roomName(r.getRoomName()).building(r.getBuilding()).floor(r.getFloor()).seatNumber(sa.getSeatNumber()).day(sa.getDay()).overflow(sa.getSeatNumber() == null).build();
-        }).toList();
+            Room    r = sa.getRoom();
+            return AllocationDto.builder()
+                    .assignmentId(sa.getId())
+                    .studentId(s.getId())
+                    .regNo(s.getRegNo())
+                    .name(s.getName())
+                    .degree(s.getDegree())
+                    .passoutYear(s.getPassoutYear())
+                    .role(s.getRole())
+                    .roomId(r.getId())
+                    .roomName(r.getRoomName())
+                    .building(r.getBuilding())
+                    .floor(r.getFloor())
+                    .seatNumber(sa.getSeatNumber())
+                    .day(sa.getDay())
+                    .overflow(sa.getSeatNumber() == null)
+                    .build();
+        });
 
-        // Manual pagination
-        int total = filtered.size();
-        int fromIndex = Math.min(page * size, total);
-        int toIndex = Math.min(fromIndex + size, total);
-        List<AllocationDto> pageContent = filtered.subList(fromIndex, toIndex);
-
-        return ResponseEntity.ok(Map.of("content", pageContent, "page", page, "size", size, "totalElements", total, "totalPages", (int) Math.ceil((double) total / size), "last", toIndex >= total));
+        return ResponseEntity.ok(dtoPage);
     }
 
 }

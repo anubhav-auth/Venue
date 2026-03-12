@@ -17,6 +17,7 @@ public class RoomDetailDto {
     private String day;
     private int capacity;
     private int seatsPerRow;
+    private int skipRows;
     private List<VerifierInfo> assignedVerifiers;
     private List<SeatInfo> seats;
     private List<SeatInfo> overflow;
@@ -33,6 +34,7 @@ public class RoomDetailDto {
         private boolean checkedIn;
         private LocalDateTime checkInTime;
         private String verifierUsername;
+        private Long checkInId;        // null if not yet checked in
     }
 
     @Data

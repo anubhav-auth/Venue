@@ -31,11 +31,28 @@ public class Verifier {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    /**
+     * When true: this verifier is a team lead (ROLE_TEAM_LEAD).
+     * When false: regular verifier (ROLE_VERIFIER).
+     * Takes effect on next login (JWT is stateless).
+     */
+    @Column(name = "is_team_lead", nullable = false)
+    @Builder.Default
+    private boolean isTeamLead = false;
+
+    /**
+     * The room this team lead is assigned to manage.
+     * Null for regular verifiers or unassigned team leads.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_room_id")
+    private Room assignedRoom;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Will be used in Step 1.5 — verifier_assignments
+    // VerifierAssignment rows (one per day+room pair for legacy flow)
     @OneToMany(mappedBy = "verifier", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<VerifierAssignment> assignments = new ArrayList<>();

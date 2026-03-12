@@ -1,5 +1,9 @@
-RoomName,Building,Floor,Capacity,SeatsPerRow,Day
-Hall A,Main Block,Ground Floor,30,10,day1
-Hall B,Main Block,First Floor,30,10,day1
-Hall C,Science Block,Ground Floor,30,10,day2
-Hall D,Science Block,First Floor,30,10,day2
+RoomName,Capacity,Building,Floor,Day,SeatsPerRow
+Main Hall,1100,Block A,Ground,day1,30
+Room 201,300,Block B,2,day1,30
+Room 202,300,Block B,2,day1,30
+Room 203,300,Block B,2,day1,30
+Main Hall,1100,Block A,Ground,day2,30
+Room 201,300,Block B,2,day2,30
+Room 202,300,Block B,2,day2,30
+Room 203,300,Block B,2,day2,30

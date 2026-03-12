@@ -1,0 +1,1 @@
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; public class Test { public static void main(String[] args) { System.out.println(new BCryptPasswordEncoder(8).matches("admin123", "$2a$08$kTM8e2OssE/6aSqeBRM/5O2UBsX0efGby/CK2DpIq/4JESb1fAuHy")); } }

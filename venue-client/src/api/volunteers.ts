@@ -21,6 +21,9 @@ export interface VerifierDto {
   id: number
   username: string
   name: string
+  isTeamLead: boolean
+  assignedRoomId: number | null
+  assignedRoomName: string | null
   assignments: { day: string; roomId: number; roomName: string }[]
 }
 

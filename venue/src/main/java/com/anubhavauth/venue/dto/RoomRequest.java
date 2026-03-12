@@ -25,4 +25,7 @@ public class RoomRequest {
     @NotBlank(message = "Day is required")
     @Pattern(regexp = "day1|day2", message = "Day must be 'day1' or 'day2'")
     private String day;
+
+    @Min(value = 0, message = "Skip rows must be 0 or greater")
+    private int skipRows = 0;
 }

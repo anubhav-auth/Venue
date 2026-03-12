@@ -25,6 +25,7 @@ public class RoomService {
                 .building(request.getBuilding())
                 .floor(request.getFloor())
                 .day(request.getDay())
+                .skipRows(request.getSkipRows())
                 .build();
         return toResponse(roomRepository.save(room));
     }
@@ -46,6 +47,7 @@ public class RoomService {
         room.setBuilding(request.getBuilding());
         room.setFloor(request.getFloor());
         room.setDay(request.getDay());
+        room.setSkipRows(request.getSkipRows());
 
         return toResponse(roomRepository.save(room));
     }
@@ -62,7 +64,7 @@ public class RoomService {
         roomRepository.delete(room);
     }
 
-    private RoomResponse toResponse(Room room) {
+    public RoomResponse toResponse(Room room) {
         return RoomResponse.builder()
                 .id(room.getId())
                 .roomName(room.getRoomName())
@@ -71,6 +73,7 @@ public class RoomService {
                 .building(room.getBuilding())
                 .floor(room.getFloor())
                 .day(room.getDay())
+                .skipRows(room.getSkipRows())
                 .createdAt(room.getCreatedAt())
                 .build();
     }

@@ -19,6 +19,10 @@ public class LoginResponse {
     private String role;
     private String name;
 
+    // Additional fields for verifiers
+    private boolean isTeamLead;
+    private Long assignedRoomId;
+
     // Only populated for VERIFIER role
     private List<VerifierAssignmentDto> assignments;
 

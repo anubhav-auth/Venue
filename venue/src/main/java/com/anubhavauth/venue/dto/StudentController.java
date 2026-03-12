@@ -1,7 +1,9 @@
 package com.anubhavauth.venue.dto;
 
+import com.anubhavauth.venue.entity.CheckIn;
 import com.anubhavauth.venue.entity.SeatAssignment;
 import com.anubhavauth.venue.entity.Student;
+import com.anubhavauth.venue.repository.CheckInRepository;
 import com.anubhavauth.venue.repository.SeatAssignmentRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class StudentController {
 
     private final StudentRepository studentRepository;
     private final SeatAssignmentRepository seatAssignmentRepository;
+    private final CheckInRepository checkInRepository;
 
     @GetMapping("/assignment")
     @Transactional(readOnly = true)
@@ -40,7 +43,7 @@ public class StudentController {
                     .build());
         }
 
-        // AUDIENCE — return seat assignment
+        // AUDIENCE — return seat assignment (may be null if not yet assigned on scan)
         Optional<SeatAssignment> saOpt = seatAssignmentRepository.findByStudentId(student.getId());
         if (saOpt.isEmpty()) {
             return ResponseEntity.status(404)
@@ -48,6 +51,15 @@ public class StudentController {
         }
 
         SeatAssignment sa = saOpt.get();
+
+        // Determine if student has checked in on this day
+        Optional<CheckIn> checkInOpt = checkInRepository
+                .findAll().stream()
+                .filter(c -> c.getStudent().getId().equals(student.getId())
+                        && c.getDay().equals(sa.getDay())
+                        && c.getDeletedAt() == null)
+                .findFirst();
+
         return ResponseEntity.ok(StudentAssignmentDto.builder()
                 .studentId(student.getId())
                 .name(student.getName())
@@ -56,9 +68,11 @@ public class StudentController {
                 .roomName(sa.getRoom().getRoomName())
                 .building(sa.getRoom().getBuilding())
                 .floor(sa.getRoom().getFloor())
-                .seatNumber(sa.getSeatNumber())
+                .seatNumber(sa.getSeatNumber())  // null until checked in
                 .day(sa.getDay())
                 .qrCodeData(sa.getQrCodeData())
+                .checkedIn(checkInOpt.isPresent())
+                .checkInTime(checkInOpt.map(CheckIn::getCheckInTime).orElse(null))
                 .build());
     }
 

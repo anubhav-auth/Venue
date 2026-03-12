@@ -1,0 +1,86 @@
+# /etc/caddy/Caddyfile
+# Venue Management System — Reverse Proxy Configuration
+# Copy to /etc/caddy/Caddyfile on the host VM and run: systemctl reload caddy
+
+{
+    # Global options
+    admin off
+    auto_https off
+    log {
+        level WARN
+    }
+}
+
+:80 {
+    encode zstd gzip
+
+    # ── Block actuator access from outside ────────────────────────────────
+    @actuator {
+        path /actuator/*
+    }
+    handle @actuator {
+        respond "Forbidden" 403
+    }
+
+    # ── WebSocket connections (STOMP / SockJS) ────────────────────────────
+    @websocket {
+        path /ws/*
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websocket localhost:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        transport http {
+            dial_timeout 5s
+        }
+    }
+
+    # ── Spring Boot API ───────────────────────────────────────────────────
+    @api {
+        path /api/*
+    }
+    reverse_proxy @api localhost:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        health_uri /actuator/health
+        health_interval 30s
+        header_down -Server
+        transport http {
+            dial_timeout 10s
+            response_header_timeout 60s
+        }
+    }
+
+    # ── Frontend static assets ────────────────────────────────────────────
+    root * /home/anubhavauth/Workspace/Venue/venue-client/dist
+
+    # Cache immutable hashed assets
+    @hashed_assets {
+        path /assets/*
+    }
+    header @hashed_assets Cache-Control "public, max-age=31536000, immutable"
+
+    # HTML — no cache
+    @html {
+        path *.html
+    }
+    header @html Cache-Control "no-cache, must-revalidate"
+
+    # SPA fallback — all non-API routes serve index.html
+    try_files {path} /index.html
+
+    file_server
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+}

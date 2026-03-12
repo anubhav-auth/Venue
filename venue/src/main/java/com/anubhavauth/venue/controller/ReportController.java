@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/reports")
@@ -32,10 +35,23 @@ public class ReportController {
     public ResponseEntity<byte[]> fullAttendance(
             @RequestParam(required = false) String day) {
 
+        // Fix 5B — targeted query instead of findAll().stream().filter(...)
         List<SeatAssignment> assignments = (day != null && !day.isBlank())
-                ? seatAssignmentRepository.findAll().stream()
-                .filter(sa -> sa.getDay().equals(day)).toList()
+                ? seatAssignmentRepository.findByDay(day)
                 : seatAssignmentRepository.findAll();
+
+        // Fix 5B — pre-load all check-ins as a map (no per-row lookup)
+        Map<String, CheckIn> checkInByStudentDay =
+                (day != null && !day.isBlank()
+                        ? checkInRepository.findByDayAndDeletedAtIsNull(day)
+                        : checkInRepository.findAll().stream()
+                                .filter(c -> c.getDeletedAt() == null).toList()
+                ).stream()
+                .collect(Collectors.toMap(
+                        c -> c.getStudent().getId() + "|" + c.getDay(),
+                        c -> c,
+                        (a, b) -> a
+                ));
 
         StringBuilder csv = new StringBuilder();
         csv.append("RegNo,Name,Degree,PassoutYear,Room,Building,Floor,SeatNumber,Day,CheckedIn,CheckInTime,VerifiedBy\n");
@@ -44,12 +60,8 @@ public class ReportController {
             Student s = sa.getStudent();
             Room r = sa.getRoom();
 
-            // Find check-in for this student+day
-            CheckIn checkIn = checkInRepository.findAll().stream()
-                    .filter(c -> c.getStudent().getId().equals(s.getId())
-                            && c.getDay().equals(sa.getDay())
-                            && c.getDeletedAt() == null)
-                    .findFirst().orElse(null);
+            // Fix 5B — O(1) map lookup instead of per-row findAll().stream()
+            CheckIn checkIn = checkInByStudentDay.get(s.getId() + "|" + sa.getDay());
 
             csv.append(escape(s.getRegNo())).append(",")
                     .append(escape(s.getName())).append(",")
@@ -112,18 +124,27 @@ public class ReportController {
     public ResponseEntity<byte[]> notCheckedIn(
             @RequestParam(required = false) String day) {
 
+        // Fix 5C — targeted query instead of findAll().stream().filter(...)
         List<SeatAssignment> assignments = (day != null && !day.isBlank())
-                ? seatAssignmentRepository.findAll().stream()
-                .filter(sa -> sa.getDay().equals(day)).toList()
+                ? seatAssignmentRepository.findByDay(day)
                 : seatAssignmentRepository.findAll();
+
+        // Fix 5C — pre-load checked-in keys as a Set (no per-row existsBy call)
+        Set<String> checkedInKeys = (day != null && !day.isBlank()
+                ? checkInRepository.findByDayAndDeletedAtIsNull(day)
+                : checkInRepository.findAll().stream()
+                        .filter(c -> c.getDeletedAt() == null).toList()
+        ).stream()
+                .map(c -> c.getStudent().getId() + "|" + c.getDay())
+                .collect(Collectors.toSet());
 
         StringBuilder csv = new StringBuilder();
         csv.append("RegNo,Name,Email,ContactNo,Degree,PassoutYear,Room,Building,Floor,SeatNumber,Day\n");
 
         for (SeatAssignment sa : assignments) {
             Student s = sa.getStudent();
-            boolean checkedIn = checkInRepository
-                    .existsByStudentIdAndDayAndDeletedAtIsNull(s.getId(), sa.getDay());
+            // Fix 5C — O(1) set lookup instead of per-row existsBy call
+            boolean checkedIn = checkedInKeys.contains(s.getId() + "|" + sa.getDay());
             if (checkedIn) continue;
 
             Room r = sa.getRoom();
@@ -152,6 +173,17 @@ public class ReportController {
 
         List<Verifier> verifiers = verifierRepository.findAll();
 
+        // Fix 5D — pre-load scan counts as a map (no per-assignment findAll in loop)
+        Map<String, Long> scanCountByVerifierDay =
+                checkInRepository.findAll().stream()
+                        .filter(c -> c.getDeletedAt() == null
+                                && c.getVerifier() != null
+                                && (day == null || day.isBlank() || c.getDay().equals(day)))
+                        .collect(Collectors.groupingBy(
+                                c -> c.getVerifier().getId() + "|" + c.getDay(),
+                                Collectors.counting()
+                        ));
+
         StringBuilder csv = new StringBuilder();
         csv.append("VerifierId,Username,Name,Day,RoomId,RoomName,ScansPerformed\n");
 
@@ -171,12 +203,9 @@ public class ReportController {
             }
 
             for (VerifierAssignment va : vAssignments) {
-                long scans = checkInRepository.findAll().stream()
-                        .filter(c -> c.getVerifier() != null
-                                && c.getVerifier().getId().equals(v.getId())
-                                && c.getDay().equals(va.getDay())
-                                && c.getDeletedAt() == null)
-                        .count();
+                // Fix 5D — O(1) map lookup instead of per-assignment findAll().stream().count()
+                long scans = scanCountByVerifierDay
+                        .getOrDefault(v.getId() + "|" + va.getDay(), 0L);
 
                 csv.append(v.getId()).append(",")
                         .append(escape(v.getUsername())).append(",")

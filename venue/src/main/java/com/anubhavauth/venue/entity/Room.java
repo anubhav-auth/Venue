@@ -44,6 +44,10 @@ public class Room {
     @Column(name = "day", length = 10, nullable = false)
     private String day;  // "day1" or "day2"
 
+    @Column(name = "skip_rows", nullable = false)
+    @Builder.Default
+    private int skipRows = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

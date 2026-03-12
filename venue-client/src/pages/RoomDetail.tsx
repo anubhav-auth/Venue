@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomDetail, SeatData } from "../api/roomDetail";
 import { Client } from "@stomp/stompjs";
 import clsx from "clsx";
+import StudentReviewModal from "../components/StudentReviewModal";
 
 type Filter = "all" | "checkedIn" | "notCheckedIn";
 
@@ -15,6 +16,8 @@ export default function RoomDetail() {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<Filter>("all");
+  // Fix 7 Part C — review modal state
+  const [reviewStudent, setReviewStudent] = useState<SeatData | null>(null);
   const qc = useQueryClient();
   const stompRef = useRef<Client | null>(null);
 
@@ -62,6 +65,9 @@ export default function RoomDetail() {
       return seatMap.get(seatNum) ?? null;
     }),
   );
+
+  // Fix 7 Part B — compute how many leading seats are in reserved rows
+  const totalSkippedSeats = (room.skipRows ?? 0) * room.seatsPerRow;
 
   // Candidate list
   const listData =
@@ -133,12 +139,13 @@ export default function RoomDetail() {
             </button>
           ))}
         </div>
-        {/* Legend */}
+        {/* Fix 7 Part B — Legend with Reserved entry */}
         <div className="flex gap-4 text-xs text-gray-500">
           {[
             ["bg-green-400", "Checked In"],
             ["bg-red-300", "Not Checked In"],
             ["bg-gray-200", "Empty"],
+            ["bg-gray-200 opacity-40", "Reserved"],
           ].map(([cls, label]) => (
             <span key={label} className="flex items-center gap-1">
               <span className={`w-3 h-3 rounded-sm ${cls}`} />
@@ -154,6 +161,19 @@ export default function RoomDetail() {
             }}
           >
             {grid.flat().map((seat, i) => {
+              // Fix 7 Part B — greyed reserved seats (come BEFORE standard empty check)
+              if (!seat && i < totalSkippedSeats) {
+                return (
+                  <div
+                    key={i}
+                    title="Reserved row"
+                    className="w-8 h-8 rounded bg-gray-200 opacity-40
+                               cursor-not-allowed flex items-center justify-center"
+                  >
+                    <span className="text-gray-400 text-xs">—</span>
+                  </div>
+                );
+              }
               if (!seat)
                 return <div key={i} className="w-8 h-8 rounded bg-gray-100" />;
               const hidden =
@@ -232,7 +252,12 @@ export default function RoomDetail() {
           </thead>
           <tbody className="divide-y">
             {filtered.slice(0, 100).map((s) => (
-              <tr key={s.studentId} className="hover:bg-gray-50">
+              // Fix 7 Part C — rows are clickable, open review modal
+              <tr
+                key={s.studentId}
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={() => setReviewStudent(s)}
+              >
                 <td className="px-3 py-2 font-mono text-xs">{s.regNo}</td>
                 <td className="px-3 py-2">{s.name}</td>
                 <td className="px-3 py-2 text-gray-500">{s.degree}</td>
@@ -250,6 +275,18 @@ export default function RoomDetail() {
           </tbody>
         </table>
       </div>
+
+      {/* Fix 7 Part C — StudentReviewModal */}
+      {reviewStudent && reviewStudent.checkInId && (
+        <StudentReviewModal
+          studentId={reviewStudent.studentId}
+          studentName={reviewStudent.name}
+          regNo={reviewStudent.regNo}
+          checkInId={reviewStudent.checkInId}
+          day={day}
+          onClose={() => setReviewStudent(null)}
+        />
+      )}
     </div>
   );
 }

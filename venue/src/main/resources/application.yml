@@ -1,14 +1,33 @@
 server:
   port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/css,application/javascript,text/javascript
+    min-response-size: 1024
+  tomcat:
+    accept-count: 1000
+    max-connections: 10000
+    connection-timeout: 20000
 
 spring:
   application:
     name: venue
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:venuedb}
     username: ${POSTGRES_USER:venueuser}
     password: ${POSTGRES_PASSWORD:venuepass}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 25
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      pool-name: VenueHikariPool
+      leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: update
@@ -25,6 +44,10 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
 
 jwt:
   secret: ${JWT_SECRET}
@@ -78,3 +101,12 @@ rate:
 qr:
   code:
     size: ${QR_CODE_SIZE:300}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

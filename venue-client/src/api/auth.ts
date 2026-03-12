@@ -5,6 +5,8 @@ interface LoginResponse {
   role: string
   username: string
   name: string | null
+  isTeamLead: boolean
+  assignedRoomId: number | null
   assignments: { day: string; roomId: number; roomName: string }[] | null
 }
 

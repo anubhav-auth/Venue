@@ -6,6 +6,7 @@ import com.anubhavauth.venue.repository.RoomRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
 import com.anubhavauth.venue.repository.VerifierAssignmentRepository;
 import com.anubhavauth.venue.repository.VerifierRepository;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +56,9 @@ public class VerifierManagementController {
             dto.put("id", v.getId());
             dto.put("username", v.getUsername());
             dto.put("name", v.getName());
+            dto.put("isTeamLead", v.isTeamLead());
+            dto.put("assignedRoomId", v.getAssignedRoom() != null ? v.getAssignedRoom().getId() : null);
+            dto.put("assignedRoomName", v.getAssignedRoom() != null ? v.getAssignedRoom().getRoomName() : null);
             dto.put("assignments", assignments);
             result.add(dto);
         }
@@ -194,4 +198,47 @@ public class VerifierManagementController {
         ));
     }
 
+    /**
+     * PATCH /api/admin/verifiers/{id}
+     * Update a verifier's team lead status and/or assigned room.
+     * NOTE: New role takes effect on next login (JWT is stateless).
+     */
+    @PatchMapping("/verifiers/{id}")
+    @Transactional
+    public ResponseEntity<?> updateVerifier(
+            @PathVariable Long id,
+            @RequestBody UpdateVerifierRequest req) {
+
+        Verifier verifier = verifierRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("VERIFIER_NOT_FOUND"));
+
+        verifier.setTeamLead(req.isTeamLead());
+
+        if (!req.isTeamLead()) {
+            // Regular verifiers cannot have an assigned room via this field
+            verifier.setAssignedRoom(null);
+        } else if (req.getAssignedRoomId() != null) {
+            com.anubhavauth.venue.entity.Room room = roomRepository.findById(req.getAssignedRoomId())
+                    .orElseThrow(() -> new RuntimeException("ROOM_NOT_FOUND"));
+            verifier.setAssignedRoom(room);
+        } else {
+            verifier.setAssignedRoom(null);
+        }
+
+        verifierRepository.save(verifier);
+
+        return ResponseEntity.ok(Map.of(
+                "id", verifier.getId(),
+                "username", verifier.getUsername(),
+                "isTeamLead", verifier.isTeamLead(),
+                "assignedRoomId", verifier.getAssignedRoom() != null ? verifier.getAssignedRoom().getId() : null,
+                "message", "Verifier updated. New role takes effect on next login."
+        ));
+    }
+
+    @Data
+    public static class UpdateVerifierRequest {
+        private boolean isTeamLead;
+        private Long assignedRoomId;
+    }
 }
