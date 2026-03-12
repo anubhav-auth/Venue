@@ -48,12 +48,10 @@ public class SeatAssignmentService {
         // 4. Calculate next available seat
         long assigned = seatAssignmentRepository
                 .countByRoomIdAndDayAndSeatNumberIsNotNull(roomId, day);
-        int skipSeats = room.getSkipRows() * (room.getSeatsPerRow() != null ? room.getSeatsPerRow() : 10);
-        long nextIndex = assigned + skipSeats;
 
         int seatsPerRow = room.getSeatsPerRow() != null ? room.getSeatsPerRow() : 10;
-        int row = (int) (nextIndex / seatsPerRow);
-        int col = (int) (nextIndex % seatsPerRow);
+        int row = (int) (assigned / seatsPerRow);
+        int col = (int) (assigned % seatsPerRow);
         String seatNumber = rowLabel(row) + "-" + String.format("%02d", col + 1);
 
         // 5. Save or update the SeatAssignment

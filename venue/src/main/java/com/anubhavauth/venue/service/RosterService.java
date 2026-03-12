@@ -172,11 +172,15 @@ public class RosterService {
                         skipped++; continue;
                     }
 
-                    if (!rosterRepository.existsByRoomIdAndStudentIdAndDay(roomId, student.getId(), day)) {
+                    if (!rosterRepository.existsByStudentIdAndDay(student.getId(), day)) {
                         rosterRepository.save(RoomRoster.builder()
                                 .room(room).student(student).day(day).build());
                         imported++;
                     } else {
+                        rowErrors.add(ImportResult.RowError.builder()
+                                .row(row.rowNum())
+                                .reason("Student " + row.regNo() + " already assigned to a room on " + day)
+                                .build());
                         skipped++;
                     }
                 }

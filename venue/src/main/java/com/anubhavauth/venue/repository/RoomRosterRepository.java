@@ -25,4 +25,5 @@ public interface RoomRosterRepository extends JpaRepository<RoomRoster, Long> {
     void deleteByRoomIdAndDay(@Param("roomId") Long roomId, @Param("day") String day);
 
     List<RoomRoster> findByStudentIdIn(List<Long> studentIds);
+    boolean existsByStudentIdAndDay(Long studentId, String day);
 }
