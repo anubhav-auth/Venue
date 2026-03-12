@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react'
 export default function StudentDashboard() {
   const { username, logout } = useAuthStore()
   const [qrUrl, setQrUrl] = useState<string | null>(null)
-  const [seatVisible, setSeatVisible] = useState(false)
 
   const { data: assignment, isLoading, error } = useQuery({
     queryKey: ['studentAssignment'],
@@ -21,19 +20,8 @@ export default function StudentDashboard() {
     if (!assignment) return
     downloadStudentQr(assignment.day ?? undefined)
       .then(r => setQrUrl(URL.createObjectURL(new Blob([r.data]))))
-      .catch(() => {})
+      .catch(() => { })
   }, [assignment?.day])
-
-  // Animate seat number appearance when checkedIn first becomes true
-  useEffect(() => {
-    if (assignment?.checkedIn && assignment.seatNumber) {
-      setSeatVisible(false)
-      const t = setTimeout(() => setSeatVisible(true), 150)
-      return () => clearTimeout(t)
-    } else {
-      setSeatVisible(false)
-    }
-  }, [assignment?.checkedIn, assignment?.seatNumber])
 
   const handleDownloadQR = () => {
     if (!qrUrl) return
@@ -85,15 +73,13 @@ export default function StudentDashboard() {
         ) : (
           <>
             {/* Room + Assignment Card */}
-            <div className={`rounded-xl p-6 border transition-colors duration-500 ${
-              isCheckedIn
-                ? 'bg-green-50 border-green-200'
-                : 'bg-indigo-50 border-indigo-100'
-            }`}>
+            <div className={`rounded-xl p-6 border transition-colors duration-500 ${isCheckedIn
+              ? 'bg-green-50 border-green-200'
+              : 'bg-indigo-50 border-indigo-100'
+              }`}>
               <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-lg ${
-                  isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'
-                }`}>
+                <div className={`p-3 rounded-lg ${isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'
+                  }`}>
                   {isCheckedIn ? <CheckCircle2 size={24} /> : <MapPin size={24} />}
                 </div>
                 <div>
@@ -105,8 +91,10 @@ export default function StudentDashboard() {
                       </span>
                     )}
                   </p>
-                  <h2 className="text-2xl font-black text-gray-900 mt-1">{assignment.roomName}</h2>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm font-semibold text-gray-700 mt-0.5">{assignment.name}</p>
+                  <p className="text-xs text-gray-400">{assignment.regNo}</p>
+                  <h2 className="text-2xl font-black text-gray-900 mt-2">{assignment.roomName}</h2>
+                  <p className="text-sm text-gray-600 mt-0.5">
                     Building {assignment.building} · Floor {assignment.floor}
                   </p>
                 </div>
@@ -114,25 +102,17 @@ export default function StudentDashboard() {
 
               {/* Seat number — animated on first appearance */}
               {seatNumber ? (
-                <div
-                  className={`mt-5 inline-block px-5 py-3 rounded-lg border shadow-sm transition-all duration-700 ${
-                    isCheckedIn ? 'bg-white border-green-200' : 'bg-white border-indigo-200'
-                  } ${seatVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-95'}`}
-                  style={{ transitionProperty: 'opacity, transform' }}
-                >
-                  <span className="text-xs text-gray-500 uppercase font-semibold block">Seat Number</span>
-                  <p className={`text-4xl font-black mt-0.5 ${
-                    isCheckedIn ? 'text-green-600' : 'text-indigo-600'
+                <div className={`mt-5 inline-block px-5 py-3 rounded-lg border shadow-sm transition-colors ${isCheckedIn ? 'bg-white border-green-200' : 'bg-white border-indigo-200'
                   }`}>
+                  <span className="text-xs text-gray-500 uppercase font-semibold block">Seat Number</span>
+                  <p className={`text-4xl font-black mt-0.5 ${isCheckedIn ? 'text-green-600' : 'text-indigo-600'}`}>
                     {seatNumber}
                   </p>
                 </div>
               ) : (
                 <div className="mt-5 bg-white/70 px-5 py-3 rounded-lg border border-dashed border-indigo-200">
                   <span className="text-xs text-gray-400 uppercase font-semibold block">Seat Number</span>
-                  <p className="text-sm text-gray-400 mt-0.5 animate-pulse">
-                    Will appear after check-in scan…
-                  </p>
+                  <p className="text-sm text-gray-400 mt-0.5 animate-pulse">Assigned at check-in</p>
                 </div>
               )}
             </div>
