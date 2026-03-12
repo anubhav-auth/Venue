@@ -6,12 +6,15 @@ import { addReview } from '@/api/reviews'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
-const QR_FPS = Number(import.meta.env.VITE_QR_FPS) || 10
-const QR_BOX_W = Number(import.meta.env.VITE_QR_BOX_WIDTH) || 240
-const QR_BOX_H = Number(import.meta.env.VITE_QR_BOX_HEIGHT) || 240
+
+const QR_FPS     = Number(import.meta.env.VITE_QR_FPS)              || 10
+const QR_BOX_W   = Number(import.meta.env.VITE_QR_BOX_WIDTH)        || 240
+const QR_BOX_H   = Number(import.meta.env.VITE_QR_BOX_HEIGHT)       || 240
 const REFETCH_MS = Number(import.meta.env.VITE_STATS_REFETCH_INTERVAL) || 30_000
 
+
 type ScanState = 'idle' | 'success' | 'duplicate' | 'error'
+
 
 interface RecentScan {
   id: string
@@ -21,29 +24,31 @@ interface RecentScan {
   time: Date
 }
 
-// ── Layout states ─────────────────────────────────────────────────────────────
-// 'closed'  → "Open Scanner" button shown
-// 'scanning'→ camera active
-// 'result'  → camera stopped, result card shown (success or duplicate)
+
+// 'closed'   → "Open Scanner" button shown
+// 'scanning' → camera active
+// 'result'   → camera stopped, result card shown
 type ViewState = 'closed' | 'scanning' | 'result'
+
 
 export default function VerifierScan() {
   const { assignments } = useAuthStore()
   const days = assignments?.map((a) => a.day) ?? ['day1']
   const [selectedDay, setSelectedDay] = useState<string>(days[0])
 
-  const [view, setView] = useState<ViewState>('closed')
-  const [scanState, setScanState] = useState<ScanState>('idle')
+  const [view, setView]             = useState<ViewState>('closed')
+  const [scanState, setScanState]   = useState<ScanState>('idle')
   const [lastResult, setLastResult] = useState<StudentScanResult | null>(null)
   const [recentScans, setRecentScans] = useState<RecentScan[]>([])
 
-  // Review state — auto-open on duplicate
-  const [showReview, setShowReview] = useState(false)
-  const [reviewText, setReviewText] = useState('')
+  const [showReview, setShowReview]           = useState(false)
+  const [reviewText, setReviewText]           = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
-  const processingRef = useRef(false)
-  const scannerRef = useRef<Html5Qrcode | null>(null)
+  const processingRef      = useRef(false)
+  const scannerRef         = useRef<Html5Qrcode | null>(null)
+  const intentionalStopRef = useRef(false)   // ✅ guards the .catch() from overriding 'result'
+
 
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['verifierStats', selectedDay],
@@ -52,6 +57,7 @@ export default function VerifierScan() {
     enabled: !!selectedDay,
   })
 
+
   // ── Scan Again ───────────────────────────────────────────────────────────────
   const handleScanAgain = () => {
     setScanState('idle')
@@ -59,17 +65,20 @@ export default function VerifierScan() {
     setShowReview(false)
     setReviewText('')
     processingRef.current = false
-    setView('scanning') // triggers camera useEffect
+    setView('scanning')
   }
+
 
   // ── Close scanner ────────────────────────────────────────────────────────────
   const handleClose = () => {
-    scannerRef.current?.stop().catch(() => { })
+    intentionalStopRef.current = true          // ✅ mark before stop()
+    scannerRef.current?.stop().catch(() => {})
     setView('closed')
     setScanState('idle')
     setLastResult(null)
     processingRef.current = false
   }
+
 
   // ── Review submit ────────────────────────────────────────────────────────────
   const handleSubmitReview = async () => {
@@ -88,6 +97,7 @@ export default function VerifierScan() {
     }
   }
 
+
   // ── QR scan handler ──────────────────────────────────────────────────────────
   const handleScanSuccess = useCallback(
     async (qrData: string) => {
@@ -102,14 +112,13 @@ export default function VerifierScan() {
               : 'error'
 
         if (state === 'error') {
-          // Flash error on camera, auto-dismiss, keep scanning
           setScanState('error')
           setLastResult(data)
           setRecentScans((prev) => [{
             id: Date.now().toString(),
             name: data.name ?? 'Unknown',
             seatNumber: data.seatNumber || null,
-            result: 'error' as ScanState,   // ← add this
+            result: 'error' as ScanState,
             time: new Date(),
           }, ...prev].slice(0, 10))
           setTimeout(() => {
@@ -120,11 +129,14 @@ export default function VerifierScan() {
           return
         }
 
-        // Success or duplicate — stop camera, show result card
+        // ✅ Mark intentional BEFORE calling stop() so the camera useEffect
+        //    .catch() doesn't see an unexpected rejection and set view='closed'
+        intentionalStopRef.current = true
         await scannerRef.current?.stop()
+
         setLastResult(data)
         setScanState(state)
-        setShowReview(state === 'duplicate') // auto-open review for rescans
+        setShowReview(state === 'duplicate')
         setRecentScans((prev) => [{
           id: Date.now().toString(),
           name: data.name ?? 'Unknown',
@@ -135,7 +147,7 @@ export default function VerifierScan() {
         setView('result')
         if (state === 'success') refetchStats()
 
-      } catch (err: any) {
+      } catch {
         setScanState('error')
         setTimeout(() => {
           setScanState('idle')
@@ -151,27 +163,38 @@ export default function VerifierScan() {
     handleScanSuccessRef.current = handleScanSuccess
   }, [handleScanSuccess])
 
+
   // ── Camera lifecycle ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (view !== 'scanning') return
+
+    intentionalStopRef.current = false         // ✅ reset on each new scan session
+
     const scanner = new Html5Qrcode('qr-reader-scan')
     scannerRef.current = scanner
+
     scanner
       .start(
         { facingMode: 'environment' },
         { fps: QR_FPS, qrbox: { width: QR_BOX_W, height: QR_BOX_H } },
-        (qrData) => handleScanSuccessRef.current(qrData),  // ✅ stable wrapper
-        () => { }
+        (qrData) => handleScanSuccessRef.current(qrData),
+        () => {}
       )
-      .catch(() => setView('closed'))
-    return () => { scanner.stop().catch(() => { }) }
+      .catch(() => {
+        // ✅ Only fall back to 'closed' if it was NOT an intentional stop
+        if (!intentionalStopRef.current) setView('closed')
+      })
+
+    return () => { scanner.stop().catch(() => {}) }
   }, [view])
 
-  // ── Result card colors ───────────────────────────────────────────────────────
+
+  // ── Result card styles ───────────────────────────────────────────────────────
   const resultStyle: Record<'success' | 'duplicate', { bg: string; label: string; icon: string }> = {
-    success: { bg: 'bg-green-500', label: 'Checked In!', icon: '✓' },
+    success:   { bg: 'bg-green-500',  label: 'Checked In!',     icon: '✓' },
     duplicate: { bg: 'bg-yellow-400', label: 'Already Scanned', icon: '⚠' },
   }
+
 
   return (
     <div className="space-y-4">
@@ -181,10 +204,11 @@ export default function VerifierScan() {
         <div className="flex gap-2">
           {days.map((d) => (
             <button key={d} onClick={() => setSelectedDay(d)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${selectedDay === d
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
-                }`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedDay === d
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
+              }`}>
               {d === 'day1' ? 'Day 1' : 'Day 2'}
             </button>
           ))}
@@ -201,8 +225,8 @@ export default function VerifierScan() {
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
               { label: 'Checked In', value: stats.checkedInCount, color: 'text-green-600' },
-              { label: 'Remaining', value: stats.remaining, color: 'text-orange-500' },
-              { label: 'Capacity', value: stats.capacity, color: 'text-gray-700' },
+              { label: 'Remaining',  value: stats.remaining,      color: 'text-orange-500' },
+              { label: 'Capacity',   value: stats.capacity,       color: 'text-gray-700' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-gray-50 rounded-lg py-2">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -211,18 +235,23 @@ export default function VerifierScan() {
             ))}
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-500 ${stats.status === 'high' ? 'bg-green-500'
-              : stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
-              }`} style={{ width: `${Math.min(stats.percentage, 100)}%` }} />
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                stats.status === 'high' ? 'bg-green-500'
+                  : stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
+              }`}
+              style={{ width: `${Math.min(stats.percentage, 100)}%` }}
+            />
           </div>
         </div>
       )}
 
-      {/* ── RESULT CARD (replaces scanner entirely after scan) ── */}
+      {/* ── RESULT CARD ─────────────────────────────────────────────────────── */}
       {view === 'result' && lastResult && (scanState === 'success' || scanState === 'duplicate') && (() => {
         const { bg, label, icon } = resultStyle[scanState]
         return (
           <div className={`${bg} rounded-2xl p-5 text-white shadow-lg space-y-4`}>
+
             {/* Header */}
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
@@ -230,7 +259,11 @@ export default function VerifierScan() {
               </div>
               <div>
                 <p className="text-xl font-bold">{label}</p>
-                <p className="text-sm opacity-80">{scanState === 'duplicate' ? 'This student was already checked in' : 'Successfully recorded'}</p>
+                <p className="text-sm opacity-80">
+                  {scanState === 'duplicate'
+                    ? 'This student was already checked in'
+                    : 'Successfully recorded'}
+                </p>
               </div>
             </div>
 
@@ -293,7 +326,7 @@ export default function VerifierScan() {
         )
       })()}
 
-      {/* ── SCANNER AREA (hidden when showing result card) ── */}
+      {/* ── SCANNER AREA ────────────────────────────────────────────────────── */}
       {view !== 'result' && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           {view === 'closed' ? (
@@ -318,6 +351,8 @@ export default function VerifierScan() {
                   <p className="text-white font-bold text-2xl">✗ Invalid QR</p>
                 </div>
               )}
+              {/* ✅ Always in DOM while view === 'scanning' — never unmounted
+                  mid-scan so Html5Qrcode never holds a ref to a removed node */}
               <div id="qr-reader-scan" className="w-full" />
               <button
                 onClick={handleClose}
@@ -346,14 +381,16 @@ export default function VerifierScan() {
                     {scan.time.toLocaleTimeString()}
                   </p>
                 </div>
-                <span className={`w-3 h-3 rounded-full ${scan.result === 'success' ? 'bg-green-500'
-                  : scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
-                  }`} />
+                <span className={`w-3 h-3 rounded-full ${
+                  scan.result === 'success'   ? 'bg-green-500'
+                    : scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
+                }`} />
               </div>
             ))}
           </div>
         </div>
       )}
+
     </div>
   )
 }
