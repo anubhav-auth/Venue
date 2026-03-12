@@ -1,9 +1,9 @@
 RoomName,Capacity,Building,Floor,Day,SeatsPerRow
-Main Hall,1100,Block A,Ground,day1,30
-Room 201,300,Block B,2,day1,30
-Room 202,300,Block B,2,day1,30
-Room 203,300,Block B,2,day1,30
-Main Hall,1100,Block A,Ground,day2,30
-Room 201,300,Block B,2,day2,30
-Room 202,300,Block B,2,day2,30
-Room 203,300,Block B,2,day2,30
+Main Auditorium,1100,Block A,Ground,day1,30
+Panel 1,300,Block B,2,day1,30
+Panel 2,300,Block B,2,day1,30
+Panel 3,300,Block B,2,day1,30
+Main Auditorium,1100,Block A,Ground,day2,30
+Panel 1,300,Block B,2,day2,30
+Panel 2,300,Block B,2,day2,30
+Panel 3,300,Block B,2,day2,30

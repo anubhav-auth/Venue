@@ -108,7 +108,7 @@ public class VolunteerCsvController {
                 rowNum++;
                 if (line.isBlank())
                     continue;
-                String[] cols = line.split(",", -1);
+                String[] cols = line.stripTrailing().split(",", -1);
 
                 String regNo = csvColumnResolver.getValue(cols, indexMap, "regNo");
                 String name = csvColumnResolver.getValue(cols, indexMap, "name");
@@ -129,7 +129,7 @@ public class VolunteerCsvController {
                     continue;
                 }
 
-                parsedRows.add(new ParsedRow(regNo, name, branch.toUpperCase()));
+                parsedRows.add(new ParsedRow(regNo, name, branch.trim()));
                 seenInBatch.add(regNo);
             }
 

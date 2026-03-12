@@ -18,22 +18,30 @@ interface RecentScan {
   name: string
   seatNumber: string | null
   result: ScanState
-  message: string
   time: Date
 }
+
+// ── Layout states ─────────────────────────────────────────────────────────────
+// 'closed'  → "Open Scanner" button shown
+// 'scanning'→ camera active
+// 'result'  → camera stopped, result card shown (success or duplicate)
+type ViewState = 'closed' | 'scanning' | 'result'
 
 export default function VerifierScan() {
   const { assignments } = useAuthStore()
   const days = assignments?.map((a) => a.day) ?? ['day1']
   const [selectedDay, setSelectedDay] = useState<string>(days[0])
-  const [scannerActive, setScannerActive] = useState(false)
+
+  const [view, setView] = useState<ViewState>('closed')
   const [scanState, setScanState] = useState<ScanState>('idle')
   const [lastResult, setLastResult] = useState<StudentScanResult | null>(null)
   const [recentScans, setRecentScans] = useState<RecentScan[]>([])
-  // Fix 6 — review state
-  const [showReviewInput, setShowReviewInput] = useState(false)
+
+  // Review state — auto-open on duplicate
+  const [showReview, setShowReview] = useState(false)
   const [reviewText, setReviewText] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+
   const processingRef = useRef(false)
   const scannerRef = useRef<Html5Qrcode | null>(null)
 
@@ -44,28 +52,35 @@ export default function VerifierScan() {
     enabled: !!selectedDay,
   })
 
-  // Fix 5 — handleNextScan: manually reset state and restart camera
-  const handleNextScan = () => {
+  // ── Scan Again ───────────────────────────────────────────────────────────────
+  const handleScanAgain = () => {
     setScanState('idle')
     setLastResult(null)
-    setShowReviewInput(false)
+    setShowReview(false)
     setReviewText('')
     processingRef.current = false
-    setScannerActive(true)  // re-triggers useEffect that starts the camera
+    setView('scanning') // triggers camera useEffect
   }
 
-  // Fix 6 — handleSubmitReview
+  // ── Close scanner ────────────────────────────────────────────────────────────
+  const handleClose = () => {
+    scannerRef.current?.stop().catch(() => { })
+    setView('closed')
+    setScanState('idle')
+    setLastResult(null)
+    processingRef.current = false
+  }
+
+  // ── Review submit ────────────────────────────────────────────────────────────
   const handleSubmitReview = async () => {
     const checkInId = lastResult?.checkInId
-    const studentId = lastResult?.studentId
-    const day = selectedDay
     if (!checkInId || !reviewText.trim()) return
     setReviewSubmitting(true)
     try {
-      await addReview(checkInId, studentId ?? 0, day, reviewText.trim())
+      await addReview(checkInId, lastResult?.studentId ?? 0, selectedDay, reviewText.trim())
       toast.success('Review added')
       setReviewText('')
-      setShowReviewInput(false)
+      setShowReview(false)
     } catch {
       toast.error('Failed to add review')
     } finally {
@@ -73,6 +88,7 @@ export default function VerifierScan() {
     }
   }
 
+  // ── QR scan handler ──────────────────────────────────────────────────────────
   const handleScanSuccess = useCallback(
     async (qrData: string) => {
       if (processingRef.current) return
@@ -80,109 +96,95 @@ export default function VerifierScan() {
 
       try {
         const { data } = await scanQr(qrData, selectedDay)
-        const isSuccess = data.success && !data.alreadyCheckedIn
-        const isDuplicate = data.success && data.alreadyCheckedIn
-        const isError = !data.success
-        const state: ScanState = isSuccess ? 'success' : isDuplicate ? 'duplicate' : 'error'
+        const state: ScanState =
+          data.success && !data.alreadyCheckedIn ? 'success'
+            : data.success && data.alreadyCheckedIn ? 'duplicate'
+              : 'error'
 
-        setLastResult(data)
-        setScanState(state)
-        setRecentScans((prev) => [
-          {
+        if (state === 'error') {
+          // Flash error on camera, auto-dismiss, keep scanning
+          setScanState('error')
+          setLastResult(data)
+          setRecentScans((prev) => [{
             id: Date.now().toString(),
             name: data.name ?? 'Unknown',
             seatNumber: data.seatNumber || null,
-            result: state,
-            message: data.message ?? '',
+            result: 'error' as ScanState,   // ← add this
             time: new Date(),
-          },
-          ...prev,
-        ].slice(0, 10))
-
-        if (isSuccess) refetchStats()
-
-        // Fix 5 — stop camera on success or duplicate; keep running on error
-        if (!isError) {
-          await scannerRef.current?.stop()
-          setScannerActive(false)
-          // processingRef stays true until handleNextScan — card persists
-        } else {
-          // Error: auto-dismiss after 1500ms and let camera keep running
+          }, ...prev].slice(0, 10))
           setTimeout(() => {
             setScanState('idle')
             setLastResult(null)
             processingRef.current = false
           }, 1500)
+          return
         }
+
+        // Success or duplicate — stop camera, show result card
+        await scannerRef.current?.stop()
+        setLastResult(data)
+        setScanState(state)
+        setShowReview(state === 'duplicate') // auto-open review for rescans
+        setRecentScans((prev) => [{
+          id: Date.now().toString(),
+          name: data.name ?? 'Unknown',
+          seatNumber: data.seatNumber || null,
+          result: state,
+          time: new Date(),
+        }, ...prev].slice(0, 10))
+        setView('result')
+        if (state === 'success') refetchStats()
+
       } catch (err: any) {
-        setLastResult(null)
         setScanState('error')
-        setRecentScans((prev) => [
-          {
-            id: Date.now().toString(),
-            name: 'Unknown',
-            seatNumber: null,
-            result: 'error' as ScanState,
-            message: err?.response?.data?.message ?? 'Scan failed',
-            time: new Date(),
-          },
-          ...prev,
-        ].slice(0, 10))
         setTimeout(() => {
           setScanState('idle')
           processingRef.current = false
         }, 1500)
       }
-
     },
     [selectedDay, refetchStats]
   )
 
+  const handleScanSuccessRef = useRef(handleScanSuccess)
   useEffect(() => {
-    if (!scannerActive) return
+    handleScanSuccessRef.current = handleScanSuccess
+  }, [handleScanSuccess])
+
+  // ── Camera lifecycle ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== 'scanning') return
     const scanner = new Html5Qrcode('qr-reader-scan')
     scannerRef.current = scanner
     scanner
       .start(
         { facingMode: 'environment' },
         { fps: QR_FPS, qrbox: { width: QR_BOX_W, height: QR_BOX_H } },
-        handleScanSuccess,
+        (qrData) => handleScanSuccessRef.current(qrData),  // ✅ stable wrapper
         () => { }
       )
-      .catch(() => setScannerActive(false))
-    return () => {
-      scanner.stop().catch(() => { })
-    }
-  }, [scannerActive, handleScanSuccess])
+      .catch(() => setView('closed'))
+    return () => { scanner.stop().catch(() => { }) }
+  }, [view])
 
-  const overlayBg: Record<ScanState, string> = {
-    idle: '',
-    success: 'bg-green-500',
-    duplicate: 'bg-yellow-400',
-    error: 'bg-red-500',
-  }
-
-  const scanStateLabel: Record<ScanState, string> = {
-    idle: '',
-    success: '✓ Checked In!',
-    duplicate: '⚠ Already Scanned',
-    error: '✗ Invalid QR',
+  // ── Result card colors ───────────────────────────────────────────────────────
+  const resultStyle: Record<'success' | 'duplicate', { bg: string; label: string; icon: string }> = {
+    success: { bg: 'bg-green-500', label: 'Checked In!', icon: '✓' },
+    duplicate: { bg: 'bg-yellow-400', label: 'Already Scanned', icon: '⚠' },
   }
 
   return (
     <div className="space-y-4">
+
       {/* Day selector */}
       {days.length > 1 && (
         <div className="flex gap-2">
           {days.map((d) => (
-            <button
-              key={d}
-              onClick={() => setSelectedDay(d)}
+            <button key={d} onClick={() => setSelectedDay(d)}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${selectedDay === d
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
-                }`}
-            >
+                }`}>
               {d === 'day1' ? 'Day 1' : 'Day 2'}
             </button>
           ))}
@@ -209,124 +211,126 @@ export default function VerifierScan() {
             ))}
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${stats.status === 'high' ? 'bg-green-500' :
-                stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
-                }`}
-              style={{ width: `${Math.min(stats.percentage, 100)}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">{stats.percentage.toFixed(1)}% filled</span>
-            <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${stats.status === 'high' ? 'text-green-700 bg-green-50' :
-              stats.status === 'medium' ? 'text-yellow-700 bg-yellow-50' :
-                'text-red-700 bg-red-50'
-              }`}>{stats.status.toUpperCase()}</span>
+            <div className={`h-full rounded-full transition-all duration-500 ${stats.status === 'high' ? 'bg-green-500'
+              : stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
+              }`} style={{ width: `${Math.min(stats.percentage, 100)}%` }} />
           </div>
         </div>
       )}
 
-      {/* Student info card (after scan) — Fix 5: persists until Next Scan is clicked */}
-      {scanState !== 'idle' && lastResult && (
-        <div className={`rounded-xl p-4 text-white ${scanState === 'success' ? 'bg-green-500' :
-          scanState === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
-          }`}>
-          <p className="font-bold text-xl">{scanStateLabel[scanState]}</p>
-          {lastResult.name && <p className="text-lg font-semibold mt-1">{lastResult.name}</p>}
-          {lastResult.regNo && <p className="text-sm opacity-80">{lastResult.regNo}</p>}
-          {lastResult.degree && <p className="text-sm opacity-80">{lastResult.degree}</p>}
-          {lastResult.seatNumber && (
-            <p className="text-lg font-bold mt-2 bg-white/20 px-3 py-1 rounded-lg inline-block">
-              Seat {lastResult.seatNumber}
-            </p>
-          )}
+      {/* ── RESULT CARD (replaces scanner entirely after scan) ── */}
+      {view === 'result' && lastResult && (scanState === 'success' || scanState === 'duplicate') && (() => {
+        const { bg, label, icon } = resultStyle[scanState]
+        return (
+          <div className={`${bg} rounded-2xl p-5 text-white shadow-lg space-y-4`}>
+            {/* Header */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
+                {icon}
+              </div>
+              <div>
+                <p className="text-xl font-bold">{label}</p>
+                <p className="text-sm opacity-80">{scanState === 'duplicate' ? 'This student was already checked in' : 'Successfully recorded'}</p>
+              </div>
+            </div>
 
-          {/* Fix 6 — Add Review toggle (only on success/duplicate) */}
-          {(scanState === 'success' || scanState === 'duplicate') && (
-            <>
+            {/* Student details */}
+            <div className="bg-white/10 rounded-xl p-4 space-y-1">
+              <p className="text-lg font-bold">{lastResult.name}</p>
+              <p className="text-sm opacity-90 font-mono">{lastResult.regNo}</p>
+              {lastResult.degree && <p className="text-sm opacity-80">{lastResult.degree}</p>}
+              {lastResult.seatNumber && (
+                <p className="mt-2 text-xl font-black tracking-wide">
+                  🪑 Seat {lastResult.seatNumber}
+                </p>
+              )}
+              {lastResult.roomName && lastResult.roomName !== 'N/A' && (
+                <p className="text-sm opacity-80">📍 {lastResult.roomName}</p>
+              )}
+            </div>
+
+            {/* Review section */}
+            <div className="space-y-2">
               <button
-                onClick={() => setShowReviewInput(v => !v)}
-                className="w-full py-2 mt-3 text-sm text-white border border-white/40
-                           rounded-lg hover:bg-white/10 transition-colors"
+                onClick={() => setShowReview(v => !v)}
+                className="w-full py-2.5 text-sm font-medium border border-white/40 rounded-xl hover:bg-white/10 transition-colors"
               >
-                {showReviewInput ? '✕ Cancel Review' : '📝 Add Review'}
+                {showReview ? '✕ Cancel Review' : '📝 Add Review / Note'}
               </button>
 
-              {showReviewInput && (
-                <div className="mt-2 space-y-2">
+              {showReview && (
+                <div className="space-y-2">
                   <textarea
                     value={reviewText}
                     onChange={e => setReviewText(e.target.value)}
-                    placeholder="Write your review..."
+                    placeholder="Write a note about this student..."
                     rows={3}
-                    className="w-full border rounded-lg px-3 py-2 text-sm text-gray-800
-                               focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                    className="w-full border-0 rounded-xl px-3 py-2.5 text-sm text-gray-800
+                               focus:ring-2 focus:ring-white outline-none resize-none"
+                    autoFocus
                   />
                   <button
                     onClick={handleSubmitReview}
                     disabled={reviewSubmitting || !reviewText.trim()}
-                    className="w-full py-2 bg-white text-indigo-600 rounded-lg text-sm
-                               font-medium hover:bg-indigo-50 disabled:opacity-50
-                               transition-colors"
+                    className="w-full py-2.5 bg-white text-gray-800 rounded-xl text-sm
+                               font-semibold hover:bg-gray-100 disabled:opacity-50 transition-colors"
                   >
-                    {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                    {reviewSubmitting ? 'Submitting…' : 'Submit Note'}
                   </button>
                 </div>
               )}
-            </>
-          )}
+            </div>
 
-          {/* Fix 5 — Next Scan button (only on success/duplicate) */}
-          {(scanState === 'success' || scanState === 'duplicate') && (
+            {/* Scan Again */}
             <button
-              onClick={handleNextScan}
-              className="w-full mt-4 py-3 bg-white/20 text-white rounded-xl
-                         font-semibold text-sm hover:bg-white/30
-                         active:scale-95 transition-all"
+              onClick={handleScanAgain}
+              className="w-full py-3.5 bg-white/20 hover:bg-white/30 active:scale-95
+                         text-white font-bold text-base rounded-xl transition-all"
             >
-              Next Scan →
+              📷 Scan Next Student
             </button>
+          </div>
+        )
+      })()}
+
+      {/* ── SCANNER AREA (hidden when showing result card) ── */}
+      {view !== 'result' && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          {view === 'closed' ? (
+            <button
+              onClick={() => setView('scanning')}
+              className="w-full py-10 flex flex-col items-center gap-3 text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </div>
+              <span className="font-medium text-lg">Open Scanner</span>
+              <span className="text-sm text-gray-400">Tap to activate camera</span>
+            </button>
+          ) : (
+            <div className="relative">
+              {/* Error flash overlay */}
+              {scanState === 'error' && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-red-500/80">
+                  <p className="text-white font-bold text-2xl">✗ Invalid QR</p>
+                </div>
+              )}
+              <div id="qr-reader-scan" className="w-full" />
+              <button
+                onClick={handleClose}
+                className="absolute top-2 right-2 z-10 bg-white rounded-full p-1.5 shadow-md"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>
       )}
-
-      {/* QR Scanner */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        {!scannerActive ? (
-          <button
-            onClick={() => setScannerActive(true)}
-            className="w-full py-10 flex flex-col items-center gap-3 text-indigo-600 hover:bg-indigo-50 transition-colors"
-          >
-            <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-            </div>
-            <span className="font-medium text-lg">Open Scanner</span>
-            <span className="text-sm text-gray-400">Tap to activate camera</span>
-          </button>
-        ) : (
-          <div className="relative">
-            {scanState !== 'idle' && (
-              <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 ${overlayBg[scanState]} bg-opacity-90 transition-all`}>
-                <p className="text-white font-bold text-2xl">{scanStateLabel[scanState]}</p>
-                {lastResult?.name && <p className="text-white">{lastResult.name}</p>}
-                {lastResult?.seatNumber && <p className="text-white opacity-80">Seat {lastResult.seatNumber}</p>}
-              </div>
-            )}
-            <div id="qr-reader-scan" className="w-full" />
-            <button
-              onClick={() => { setScannerActive(false); scannerRef.current?.stop().catch(() => { }) }}
-              className="absolute top-2 right-2 z-10 bg-white rounded-full p-1.5 shadow-md"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Recent scans */}
       {recentScans.length > 0 && (
@@ -342,8 +346,8 @@ export default function VerifierScan() {
                     {scan.time.toLocaleTimeString()}
                   </p>
                 </div>
-                <span className={`w-3 h-3 rounded-full ${scan.result === 'success' ? 'bg-green-500' :
-                  scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
+                <span className={`w-3 h-3 rounded-full ${scan.result === 'success' ? 'bg-green-500'
+                  : scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
                   }`} />
               </div>
             ))}

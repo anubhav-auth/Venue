@@ -1,5 +1,7 @@
-package com.anubhavauth.venue.dto;
+package com.anubhavauth.venue.controller;
 
+import com.anubhavauth.venue.dto.StudentAssignmentDto;
+import com.anubhavauth.venue.dto.StudentProfileDto;
 import com.anubhavauth.venue.entity.CheckIn;
 import com.anubhavauth.venue.entity.SeatAssignment;
 import com.anubhavauth.venue.entity.Student;
@@ -46,8 +48,14 @@ public class StudentController {
         // AUDIENCE — return seat assignment (may be null if not yet assigned on scan)
         Optional<SeatAssignment> saOpt = seatAssignmentRepository.findByStudentId(student.getId());
         if (saOpt.isEmpty()) {
-            return ResponseEntity.status(404)
-                    .body(java.util.Map.of("error", "No seat assignment found yet"));
+            return ResponseEntity.ok(StudentAssignmentDto.builder()
+                    .studentId(student.getId())
+                    .name(student.getName())
+                    .regNo(student.getRegNo())
+                    .role(student.getRole())
+                    .qrCodeData(student.getQrCodeData())
+                    .checkedIn(false)
+                    .build());
         }
 
         SeatAssignment sa = saOpt.get();
@@ -70,7 +78,7 @@ public class StudentController {
                 .floor(sa.getRoom().getFloor())
                 .seatNumber(sa.getSeatNumber())  // null until checked in
                 .day(sa.getDay())
-                .qrCodeData(sa.getQrCodeData())
+                .qrCodeData(sa.getQrCodeData() != null ? sa.getQrCodeData() : student.getQrCodeData())
                 .checkedIn(checkInOpt.isPresent())
                 .checkInTime(checkInOpt.map(CheckIn::getCheckInTime).orElse(null))
                 .build());

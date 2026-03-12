@@ -54,6 +54,6 @@ public class CsvColumnResolver {
         Integer index = indexMap.get(fieldKey);
         if (index == null || index >= row.length) return null;
         String val = row[index].trim();
-        return val.isEmpty() ? null : val;
+        return val == null || val.isBlank() ? null : val.strip().replace("\r", "").replace("\uFEFF", "");
     }
 }

@@ -152,7 +152,7 @@ public class VerifierController {
         }
 
         // Proceed with the volunteer scan
-        if (!hashService.verifyHash(studentId + "VOLUNTEER", hash)) {
+        if (!hashService.verifyHash(studentId, "VOLUNTEER", hash)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("success", false, "message", "Tampered QR hash"));
         }
@@ -204,82 +204,102 @@ public class VerifierController {
             Map<?, ?> qrMap, Long studentId, String hash, String day, Verifier verifier) {
 
         Number roomIdNum = (Number) qrMap.get("roomId");
-        String qrDay = (String) qrMap.get("day");
+        String qrDay     = (String)  qrMap.get("day");
 
+        // ── Determine the room ────────────────────────────────────────────────
+        // New-style QR (no roomId/day embedded): use verifier's assigned room.
+        // Legacy QR (roomId + day embedded):     validate as before.
+        Room room;
         if (roomIdNum == null || qrDay == null) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Invalid audience QR format"));
+            // No room in QR → derive from verifier assignment for this day
+            Optional<VerifierAssignment> assignment =
+                    verifierAssignmentRepository.findByVerifierIdAndDay(verifier.getId(), day);
+
+            if (assignment.isPresent()) {
+                room = assignment.get().getRoom();
+            } else if (verifier.getAssignedRoom() != null) {
+                room = verifier.getAssignedRoom();          // team-lead fallback
+            } else {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false,
+                                "message", "Verifier not assigned to a room for " + day));
+            }
+
+            // Hash was generated without a roomId — verify as studentId + "AUDIENCE"
+            if (!hashService.verifyHash(studentId, "AUDIENCE", hash)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Tampered QR hash"));
+            }
+
+        } else {
+            // Legacy QR with roomId + day baked in
+            Long qrRoomId = roomIdNum.longValue();
+
+            if (!qrDay.equals(day)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false,
+                                "message", "Wrong day — ticket is for " + qrDay));
+            }
+            if (!hashService.verifyHash(studentId, qrRoomId, hash)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Tampered QR hash"));
+            }
+
+            // Verifier must be assigned to the room encoded in the QR
+            Optional<VerifierAssignment> assignment =
+                    verifierAssignmentRepository.findByVerifierIdAndDay(verifier.getId(), day);
+            boolean roomMatches = assignment.isPresent()
+                    && assignment.get().getRoom().getId().equals(qrRoomId);
+            if (!roomMatches && verifier.getAssignedRoom() != null) {
+                roomMatches = verifier.getAssignedRoom().getId().equals(qrRoomId);
+            }
+            if (!roomMatches) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Wrong room for this verifier"));
+            }
+            room = assignment.isPresent() ? assignment.get().getRoom() : verifier.getAssignedRoom();
         }
 
-        Long qrRoomId = roomIdNum.longValue();
-
-        // Verify hash
-        if (!hashService.verifyHash(studentId + "" + qrRoomId, hash)) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Tampered QR hash"));
-        }
-
-        // Day must match
-        if (!qrDay.equals(day)) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("success", false,
-                            "message", "Wrong day — ticket is for " + qrDay));
-        }
-
-        // Verifier must be assigned to this room (via VerifierAssignment or assignedRoom)
-        Optional<VerifierAssignment> assignment =
-                verifierAssignmentRepository.findByVerifierIdAndDay(verifier.getId(), day);
-        boolean roomMatches = assignment.isPresent() && assignment.get().getRoom().getId().equals(qrRoomId);
-        // Also allow team lead who has assignedRoom matching
-        if (!roomMatches && verifier.getAssignedRoom() != null) {
-            roomMatches = verifier.getAssignedRoom().getId().equals(qrRoomId);
-        }
-        if (!roomMatches) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Wrong room for this verifier"));
-        }
-
-        // Duplicate check-in — return existing result
+        // ── Duplicate check ───────────────────────────────────────────────────
         if (checkInRepository.existsByStudentIdAndDayAndDeletedAtIsNull(studentId, day)) {
             Student student = studentRepository.findById(studentId)
                     .orElseThrow(() -> new RuntimeException("STUDENT_NOT_FOUND"));
-            Room room = assignment.isPresent() ? assignment.get().getRoom() : verifier.getAssignedRoom();
             Optional<String> existingSeat = seatAssignmentRepository
                     .findByStudentIdAndDay(studentId, day)
-                    .map(sa -> sa.getSeatNumber());
+                    .map(SeatAssignment::getSeatNumber);
             Optional<CheckIn> existingCheckIn = checkInRepository
                     .findByStudentIdAndDayAndDeletedAtIsNull(studentId, day);
-            java.util.Map<String, Object> dupResponse = new java.util.HashMap<>();
-            dupResponse.put("success", true);
-            dupResponse.put("alreadyCheckedIn", true);
-            dupResponse.put("studentId", studentId);
-            dupResponse.put("name", student.getName());
-            dupResponse.put("regNo", student.getRegNo());
-            dupResponse.put("degree", student.getDegree() != null ? student.getDegree() : "");
-            dupResponse.put("branch", "");
-            dupResponse.put("passoutYear", student.getPassoutYear() != null ? student.getPassoutYear() : 0);
-            dupResponse.put("seatNumber", existingSeat.orElse(null) != null ? existingSeat.get() : "");
-            dupResponse.put("roomName", room != null ? room.getRoomName() : "");
-            dupResponse.put("verifierUsername", verifier.getUsername());
-            dupResponse.put("checkInId", existingCheckIn.map(CheckIn::getId).orElse(null));
-            return ResponseEntity.ok(dupResponse);
+
+            Map<String, Object> dup = new java.util.HashMap<>();
+            dup.put("success",          true);
+            dup.put("alreadyCheckedIn", true);
+            dup.put("studentId",        studentId);
+            dup.put("name",             student.getName());
+            dup.put("regNo",            student.getRegNo());
+            dup.put("degree",           student.getDegree() != null ? student.getDegree() : "");
+            dup.put("passoutYear",      student.getPassoutYear() != null ? student.getPassoutYear() : 0);
+            dup.put("seatNumber",       existingSeat.orElse(null));
+            dup.put("roomName",         room.getRoomName());
+            dup.put("verifierUsername", verifier.getUsername());
+            dup.put("checkInId",        existingCheckIn.map(CheckIn::getId).orElse(null));
+            return ResponseEntity.ok(dup);
         }
 
+        // ── Fresh check-in ────────────────────────────────────────────────────
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("STUDENT_NOT_FOUND"));
-        Room room = assignment.isPresent() ? assignment.get().getRoom() : verifier.getAssignedRoom();
 
-        // Assign seat on scan (includes roster check + pessimistic lock)
         String assignedSeat = null;
         try {
-            SeatAssignResult seatResult = seatAssignmentService.assignSeatOnScan(qrRoomId, studentId, day);
+            SeatAssignResult seatResult =
+                    seatAssignmentService.assignSeatOnScan(room.getId(), studentId, day);
             assignedSeat = seatResult.getSeatNumber();
         } catch (RuntimeException e) {
             if ("STUDENT_NOT_ON_ROSTER".equals(e.getMessage())) {
                 return ResponseEntity.status(403)
                         .body(Map.of("success", false, "message", "Student not on room roster"));
             }
-            // If roster not used, fall back gracefully (seat stays null)
+            // roster not used — seat stays null (overflow)
         }
 
         CheckIn saved = checkInRepository.save(CheckIn.builder()
@@ -287,20 +307,19 @@ public class VerifierController {
                 .room(room)
                 .seatNumber(assignedSeat)
                 .verifier(verifier)
-                .method("qrscan")
+                .method("qr_scan")
                 .day(day)
                 .build());
 
-        long roomCount = room != null
-                ? checkInRepository.countByRoomIdAndDayAndDeletedAtIsNull(room.getId(), day)
-                : 0;
+        long roomCount = checkInRepository
+                .countByRoomIdAndDayAndDeletedAtIsNull(room.getId(), day);
 
         eventPublisher.publish(CheckInEvent.builder()
                 .studentId(student.getId())
                 .studentName(student.getName())
                 .regNo(student.getRegNo())
-                .roomId(room != null ? room.getId() : null)
-                .roomName(room != null ? room.getRoomName() : "N/A")
+                .roomId(room.getId())
+                .roomName(room.getRoomName())
                 .seatNumber(assignedSeat)
                 .day(day)
                 .verifierUsername(verifier.getUsername())
@@ -308,20 +327,20 @@ public class VerifierController {
                 .roomCheckedInCount(roomCount)
                 .build());
 
-        java.util.Map<String, Object> freshResponse = new java.util.HashMap<>();
-        freshResponse.put("success", true);
-        freshResponse.put("alreadyCheckedIn", false);
-        freshResponse.put("studentId", studentId);
-        freshResponse.put("name", student.getName());
-        freshResponse.put("regNo", student.getRegNo());
-        freshResponse.put("degree", student.getDegree() != null ? student.getDegree() : "");
-        freshResponse.put("branch", "");
-        freshResponse.put("passoutYear", student.getPassoutYear() != null ? student.getPassoutYear() : 0);
-        freshResponse.put("seatNumber", assignedSeat != null ? assignedSeat : "");
-        freshResponse.put("roomName", room != null ? room.getRoomName() : "");
-        freshResponse.put("verifierUsername", verifier.getUsername());
-        freshResponse.put("checkInTime", saved.getCheckInTime().toString());
-        freshResponse.put("checkInId", saved.getId());
-        return ResponseEntity.ok(freshResponse);
+        Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("success",          true);
+        resp.put("alreadyCheckedIn", false);
+        resp.put("studentId",        studentId);
+        resp.put("name",             student.getName());
+        resp.put("regNo",            student.getRegNo());
+        resp.put("degree",           student.getDegree() != null ? student.getDegree() : "");
+        resp.put("passoutYear",      student.getPassoutYear() != null ? student.getPassoutYear() : 0);
+        resp.put("seatNumber",       assignedSeat != null ? assignedSeat : "");
+        resp.put("roomName",         room.getRoomName());
+        resp.put("verifierUsername", verifier.getUsername());
+        resp.put("checkInTime",      saved.getCheckInTime().toString());
+        resp.put("checkInId",        saved.getId());
+        return ResponseEntity.ok(resp);
     }
+
 }

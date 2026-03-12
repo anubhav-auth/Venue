@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -12,7 +13,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
-
 
 @Configuration
 @EnableWebSecurity
@@ -44,32 +44,34 @@ public class SecurityConfig {
                         })
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+
+                        // ── Public ────────────────────────────────────────────
                         .requestMatchers("/api/health").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/student/auth/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
 
-                        // Admin — specific rules before the catch-all
-                        .requestMatchers(
-                                org.springframework.http.HttpMethod.POST,
-                                "/api/admin/volunteers/*/mark-absent"
-                        ).hasAnyRole("ADMIN", "TEAM_LEAD")
+                        // ── TEAMLEAD-accessible admin endpoints ───────────────
+                        // MUST come before the /api/admin/** catch-all
+                        .requestMatchers(HttpMethod.POST, "/api/admin/volunteers/*/mark-absent")
+                        .hasAnyRole("ADMIN", "TEAMLEAD")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/volunteers/scan")
+                        .hasAnyRole("ADMIN", "TEAMLEAD")
+                        .requestMatchers(HttpMethod.GET, "/api/admin/volunteers")
+                        .hasAnyRole("ADMIN", "TEAMLEAD")
 
-                        // Admin — catch-all (must come after specific rules)
+                        // ── Admin catch-all ───────────────────────────────────
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // Check-in scan & reviews — verifiers, team leads, and admins
-                        .requestMatchers("/api/checkin/*/review").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
-                        .requestMatchers("/api/checkin/**").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
+                        // ── Verifier / TeamLead routes ────────────────────────
+                        .requestMatchers("/api/checkin/*/review").hasAnyRole("VERIFIER", "TEAMLEAD", "ADMIN")
+                        .requestMatchers("/api/checkin/**").hasAnyRole("VERIFIER", "TEAMLEAD", "ADMIN")
+                        .requestMatchers("/api/verifier/**").hasAnyRole("VERIFIER", "TEAMLEAD", "ADMIN")
 
-                        // Verifier dashboard — VERIFIER, TEAM_LEAD, and ADMIN
-                        .requestMatchers("/api/verifier/**").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
-
-                        // Student portal — audience and volunteers
+                        // ── Student portal ────────────────────────────────────
                         .requestMatchers("/api/student/**").hasAnyRole("AUDIENCE", "VOLUNTEER")
 
-                        // Everything else must be authenticated
+                        // ── Everything else requires auth ─────────────────────
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

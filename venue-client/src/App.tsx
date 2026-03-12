@@ -64,17 +64,29 @@ const qc = new QueryClient({
 })
 
 
-// Protects Admin/Verifier Routes (Layout + Sidebar)
+// FIXED ✅ — add TEAMLEAD redirect in both functions
 function AdminGuard({ children }: { children: ReactNode }) {
-  const token = useAuthStore((s) => s.token);
-  const role = useAuthStore((s) => s.role);
-
+  const token = useAuthStore(s => s.token);
+  const role = useAuthStore(s => s.role);
   if (!token) return <Navigate to="/login" replace />;
-  if (role === "AUDIENCE") return <Navigate to="/my-seat" replace />;
-  if (role === "VOLUNTEER") return <Navigate to="/my-pass" replace />;
-  if (role === "VERIFIER") return <Navigate to="/verifier" replace />;
+  if (role === 'AUDIENCE') return <Navigate to="/my-seat" replace />;
+  if (role === 'VOLUNTEER') return <Navigate to="/my-pass" replace />;
+  if (role === 'VERIFIER') return <Navigate to="/verifier" replace />;
+  if (role === 'TEAMLEAD') return <Navigate to="/verifier" replace />; // ✅ ADD THIS
   return <>{children}</>;
 }
+
+function FallbackRedirect() {
+  const token = useAuthStore(s => s.token);
+  const role = useAuthStore(s => s.role);
+  if (!token) return <Navigate to="/login" replace />;
+  if (role === 'AUDIENCE') return <Navigate to="/my-seat" replace />;
+  if (role === 'VOLUNTEER') return <Navigate to="/my-pass" replace />;
+  if (role === 'VERIFIER') return <Navigate to="/verifier" replace />;
+  if (role === 'TEAMLEAD') return <Navigate to="/verifier" replace />; // ✅ ADD THIS
+  return <Navigate to="/dashboard" replace />;
+}
+
 
 // Protects the Student Portal
 function StudentGuard({ children }: { children: ReactNode }) {
@@ -86,24 +98,14 @@ function StudentGuard({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// Smart fallback to route users to the right place if they hit a 404
-function FallbackRedirect() {
-  const token = useAuthStore((s) => s.token);
-  const role = useAuthStore((s) => s.role);
-  if (!token) return <Navigate to="/login" replace />;
-  if (role === "AUDIENCE") return <Navigate to="/my-seat" replace />;
-  if (role === "VOLUNTEER") return <Navigate to="/my-pass" replace />;
-  if (role === "VERIFIER") return <Navigate to="/verifier" replace />;
-  return <Navigate to="/dashboard" replace />;
-}
-
 function VerifierGuard({ children }: { children: ReactNode }) {
-  const token = useAuthStore((s) => s.token);
-  const role = useAuthStore((s) => s.role);
+  const token = useAuthStore(s => s.token);
+  const role = useAuthStore(s => s.role);
   if (!token) return <Navigate to="/login" replace />;
-  if (role !== "VERIFIER") return <Navigate to="/login" replace />;
+  if (role !== 'VERIFIER' && role !== 'TEAMLEAD') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
+
 
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function App() {

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Download, QrCode, CheckCircle2 } from 'lucide-react'
-import { useAuthStore } from '@/store/authStore'
-import { getStudentAssignment, downloadStudentQr } from '@/api/studentPortal'
+import { useAuthStore } from '../store/authStore'
+import { getStudentAssignment, downloadStudentQr } from '../api/studentPortal'
 import toast from 'react-hot-toast'
 import { useEffect, useState } from 'react'
 
@@ -12,16 +12,17 @@ export default function StudentDashboard() {
   const { data: assignment, isLoading, error } = useQuery({
     queryKey: ['studentAssignment'],
     queryFn: () => getStudentAssignment().then(r => r.data),
-    refetchInterval: 10_000,  // poll every 10 seconds for seat assignment
+    refetchInterval: 10000,
   })
 
-  // Fetch QR as blob once we know the day
+  // ✅ Fetch QR as soon as assignment loads, regardless of day
+  // day is only needed after scan — before scan we use student-level QR
   useEffect(() => {
     if (!assignment) return
     downloadStudentQr(assignment.day ?? undefined)
       .then(r => setQrUrl(URL.createObjectURL(new Blob([r.data]))))
-      .catch(() => { })
-  }, [assignment?.day])
+      .catch(() => {})
+  }, [!!assignment]) // ✅ fires once when assignment transitions null → loaded
 
   const handleDownloadQR = () => {
     if (!qrUrl) return
@@ -45,9 +46,8 @@ export default function StudentDashboard() {
     </div>
   )
 
-  const hasAssignment = !!assignment?.roomName
   const isCheckedIn = assignment?.checkedIn === true
-  const seatNumber = assignment?.seatNumber
+  const hasRoom = !!assignment?.roomName  // has been scanned + assigned a room
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -63,79 +63,70 @@ export default function StudentDashboard() {
       </div>
 
       <div className="max-w-sm mx-auto w-full px-4 py-8 space-y-5">
-        {!hasAssignment ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
-            <p className="text-yellow-700 font-medium">No seat assigned yet</p>
-            <p className="text-sm text-yellow-600 mt-1">
-              Check back after allocation is complete
-            </p>
+
+        {/* ✅ QR always shown — student needs this to get scanned */}
+        <div className="bg-white rounded-xl border p-6 flex flex-col items-center gap-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <QrCode size={16} />
+            Your Entry QR
+          </div>
+          {qrUrl ? (
+            <img src={qrUrl} alt="Entry QR Code" className="w-48 h-48 rounded-lg" />
+          ) : (
+            <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs">
+              Loading QR...
+            </div>
+          )}
+          <button
+            onClick={handleDownloadQR}
+            disabled={!qrUrl}
+            className="flex items-center gap-2 px-4 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-40"
+          >
+            <Download size={14} />
+            Download Pass
+          </button>
+        </div>
+
+        {/* ✅ Pre-scan state: show helpful message instead of blocking */}
+        {!hasRoom ? (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+            <p className="text-blue-700 font-medium text-sm">Show this QR at the venue entrance</p>
+            <p className="text-xs text-blue-500 mt-1">Your seat will be assigned when you check in</p>
           </div>
         ) : (
-          <>
-            {/* Room + Assignment Card */}
-            <div className={`rounded-xl p-6 border transition-colors duration-500 ${isCheckedIn
-              ? 'bg-green-50 border-green-200'
-              : 'bg-indigo-50 border-indigo-100'
+          /* Post-scan: room assignment card */
+          <div className={`rounded-xl p-6 border transition-colors duration-500 ${
+            isCheckedIn ? 'bg-green-50 border-green-200' : 'bg-indigo-50 border-indigo-100'
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-lg ${
+                isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'
               }`}>
-              <div className="flex items-start gap-4">
-                <div className={`p-3 rounded-lg ${isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-indigo-100 text-indigo-600'
-                  }`}>
-                  {isCheckedIn ? <CheckCircle2 size={24} /> : <MapPin size={24} />}
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                    {assignment.day === 'day1' ? 'Day 1' : 'Day 2'}
-                    {isCheckedIn && (
-                      <span className="ml-2 inline-flex items-center gap-1 text-green-600 text-xs normal-case font-semibold">
-                        ✓ Checked In
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-sm font-semibold text-gray-700 mt-0.5">{assignment.name}</p>
-                  <p className="text-xs text-gray-400">{assignment.regNo}</p>
-                  <h2 className="text-2xl font-black text-gray-900 mt-2">{assignment.roomName}</h2>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    Building {assignment.building} · Floor {assignment.floor}
-                  </p>
-                </div>
+                {isCheckedIn ? <CheckCircle2 size={24} /> : <MapPin size={24} />}
               </div>
-
-              {/* Seat number — animated on first appearance */}
-              {seatNumber ? (
-                <div className={`mt-5 inline-block px-5 py-3 rounded-lg border shadow-sm transition-colors ${isCheckedIn ? 'bg-white border-green-200' : 'bg-white border-indigo-200'
-                  }`}>
-                  <span className="text-xs text-gray-500 uppercase font-semibold block">Seat Number</span>
-                  <p className={`text-4xl font-black mt-0.5 ${isCheckedIn ? 'text-green-600' : 'text-indigo-600'}`}>
-                    {seatNumber}
+              <div>
+                <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                  {assignment!.day === 'day1' ? 'Day 1' : 'Day 2'}
+                  {isCheckedIn && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-green-600 text-xs normal-case font-semibold">
+                      ✓ Checked In
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm font-semibold text-gray-700 mt-0.5">{assignment!.name}</p>
+                <p className="text-xs text-gray-400">{assignment!.regNo}</p>
+                <h2 className="text-2xl font-black text-gray-900 mt-2">{assignment!.roomName}</h2>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  Building {assignment!.building} · Floor {assignment!.floor}
+                </p>
+                {assignment!.seatNumber && (
+                  <p className="text-lg font-bold text-indigo-600 mt-1">
+                    Seat {assignment!.seatNumber}
                   </p>
-                </div>
-              ) : (
-                <div className="mt-5 bg-white/70 px-5 py-3 rounded-lg border border-dashed border-indigo-200">
-                  <span className="text-xs text-gray-400 uppercase font-semibold block">Seat Number</span>
-                  <p className="text-sm text-gray-400 mt-0.5 animate-pulse">Assigned at check-in</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-
-            {/* QR Code */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 flex flex-col items-center gap-4">
-              <p className="text-sm font-semibold text-gray-600 flex items-center gap-2">
-                <QrCode size={16} /> Your Entry QR
-              </p>
-              {qrUrl ? (
-                <img src={qrUrl} alt="Entry QR" className="w-56 h-56 rounded-lg" />
-              ) : (
-                <div className="w-56 h-56 bg-gray-100 rounded-lg animate-pulse" />
-              )}
-              <button
-                onClick={handleDownloadQR}
-                disabled={!qrUrl}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-40 transition-colors"
-              >
-                <Download size={16} /> Download QR Pass
-              </button>
-            </div>
-          </>
+          </div>
         )}
       </div>
     </div>

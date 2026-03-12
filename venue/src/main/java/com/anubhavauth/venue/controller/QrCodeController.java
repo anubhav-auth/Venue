@@ -44,23 +44,24 @@ public class QrCodeController {
             if (qrContent == null) {
                 return ResponseEntity.notFound().build();
             }
+            // REPLACE the entire else block for AUDIENCE:
         } else {
-            // AUDIENCE — find their seat assignment
-            Optional<SeatAssignment> saOpt = day != null && !day.isBlank()
-                    ? seatAssignmentRepository.findAll().stream()
-                    .filter(sa -> sa.getStudent().getId().equals(student.getId())
-                            && sa.getDay().equals(day))
-                    .findFirst()
-                    : seatAssignmentRepository.findByStudentId(student.getId());
-
-            if (saOpt.isEmpty()) {
-                return ResponseEntity.notFound().build();
-            }
-            qrContent = saOpt.get().getQrCodeData();
-            if (qrContent == null) {
-                return ResponseEntity.notFound().build();
+            // Use student-level QR if available (pre-allocation)
+            if (student.getQrCodeData() != null) {
+                qrContent = student.getQrCodeData();
+            } else {
+                // Fall back to seat assignment QR
+                Optional<SeatAssignment> saOpt = day != null && !day.isBlank()
+                        ? seatAssignmentRepository.findAll().stream()
+                        .filter(sa -> sa.getStudent().getId().equals(student.getId()) && sa.getDay().equals(day))
+                        .findFirst()
+                        : seatAssignmentRepository.findByStudentId(student.getId());
+                if (saOpt.isEmpty() || saOpt.get().getQrCodeData() == null)
+                    return ResponseEntity.notFound().build();
+                qrContent = saOpt.get().getQrCodeData();
             }
         }
+
 
         byte[] png = qrCodeGenerator.generate(qrContent);
         return ResponseEntity.ok()

@@ -58,9 +58,19 @@ bcrypt:
 
 csv:
   validBranches:
-    - CSE
-    - IT
-    - MSC
+    - Computer Science & Engineering
+    - Computer Science and Information Technology
+    - Computer Science & Engineering (IOT)
+    - Master in Computer Application (MCA)
+    - Electronics & Communication Engineering
+    - Computer Science & Engineering (Data Science)
+    - Computer Science & Engineering (AIML)
+    - Computer Science & Engineering (Cyber Security)
+    - Mechanical Engineering
+    - Electrical and Electronics Engineering
+    - Electrical Engineering
+    - Civil Engineering
+    - Others
   student:
     columns:
       name: "Full Name"

@@ -6,6 +6,7 @@ import com.anubhavauth.venue.repository.RoomRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
 import com.anubhavauth.venue.repository.VerifierAssignmentRepository;
 import com.anubhavauth.venue.repository.VerifierRepository;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -227,17 +228,18 @@ public class VerifierManagementController {
 
         verifierRepository.save(verifier);
 
-        return ResponseEntity.ok(Map.of(
-                "id", verifier.getId(),
-                "username", verifier.getUsername(),
-                "isTeamLead", verifier.isTeamLead(),
-                "assignedRoomId", verifier.getAssignedRoom() != null ? verifier.getAssignedRoom().getId() : null,
-                "message", "Verifier updated. New role takes effect on next login."
-        ));
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("message", "Verifier updated");
+        response.put("verifierId", id);
+        response.put("isTeamLead", verifier.isTeamLead());
+        response.put("assignedRoomId",   verifier.getAssignedRoom() != null ? verifier.getAssignedRoom().getId()        : null);
+        response.put("assignedRoomName", verifier.getAssignedRoom() != null ? verifier.getAssignedRoom().getRoomName()  : null);
+        return ResponseEntity.ok(response);
     }
 
     @Data
     public static class UpdateVerifierRequest {
+        @JsonProperty("isTeamLead")
         private boolean isTeamLead;
         private Long assignedRoomId;
     }

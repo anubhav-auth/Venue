@@ -23,8 +23,17 @@ public class CsvImportService {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public void saveStudents(List<Student> students) {
-        studentRepository.saveAll(students);
+    public void saveStudents(List<Student> students) throws Exception {
+        List<Student> saved = studentRepository.saveAll(students);  // get generated IDs
+        for (Student s : saved) {
+            String hash = hashService.generateHash(s.getId() + "AUDIENCE");
+            s.setQrCodeData(objectMapper.writeValueAsString(Map.of(
+                    "studentId", s.getId(),
+                    "role",      "AUDIENCE",
+                    "hash",      hash
+            )));
+        }
+        studentRepository.saveAll(saved);
     }
 
     @Transactional

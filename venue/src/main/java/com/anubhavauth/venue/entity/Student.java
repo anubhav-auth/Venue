@@ -42,7 +42,7 @@ public class Student {
     @Column(name = "passout_year")
     private Integer passoutYear;
 
-    @Column(name = "degree", length = 10)
+    @Column(name = "degree", length = 100)
     private String degree;
 
     @Column(name = "contact_no", length = 15)
