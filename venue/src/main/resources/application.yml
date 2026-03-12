@@ -57,20 +57,15 @@ bcrypt:
   cost: ${BCRYPT_COST:8}
 
 csv:
-  validDegrees:
-    - BTECH
-    - BCA
-    - MTECH
-    - MCA
+  validBranches:
+    - CSE
+    - IT
     - MSC
   student:
     columns:
-      name: "Name"
-      regNo: "Regdno"
-      email: "Emailid"
-      degree: "Degree"
-      contactNo: "Contactno"
-      passoutYear: "Passoutyear"
+      name: "Full Name"
+      regNo: "Regd. No"
+      branch: "BRANCH"
   room:
     columns:
       roomName: "RoomName"

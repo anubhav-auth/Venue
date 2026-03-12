@@ -1,22 +1,16 @@
 import csv
 import random
 
-# Degrees
-valid_degrees = ["BTECH", "BCA", "MTECH", "MCA", "MSC"]
-
-def random_phone():
-    return "9" + "".join(str(random.randint(0, 9)) for _ in range(9))
+# Branches
+valid_branches = ["CSE", "IT"]
 
 def generate_students(prefix, start_idx, count):
     records = []
     for i in range(start_idx, start_idx + count):
-        name = f"{prefix} Student {i}"
+        full_name = f"{prefix} Student {i}"
         regno = f"{prefix.lower()}{i:05d}"
-        email = f"{regno}@example.com"
-        degree = random.choice(valid_degrees)
-        contact = random_phone()
-        year = random.choice([2024, 2025, 2026, 2027])
-        records.append([name, regno, email, degree, contact, year])
+        branch = random.choice(valid_branches)
+        records.append([regno, full_name, branch])
     return records
 
 def write_csv(filename, header, data):
@@ -25,24 +19,33 @@ def write_csv(filename, header, data):
         writer.writerow(header)
         writer.writerows(data)
 
+# CSV Header
+csv_header = ["Regd. No", "Full Name", "BRANCH"]
+
 # 1. 50 Volunteers
 vol_data = generate_students("VOL", 1, 50)
-write_csv("volunteers.csv", ["Name", "Regdno", "Emailid", "Degree", "Contactno", "Passoutyear"], vol_data)
+write_csv("volunteers.csv", csv_header, vol_data)
 
-# 2. Audience Data: total 2000 students (day 1 and day 2 overlapping or separate? separate is easiest)
-# "4 csv for audiece day 1 and 4csv for audience day 2"
-# Meaning 1000 for Day 1 (in 4 parts of 250) and 1000 for Day 2 (in 4 parts of 250)
-# So total 2000 audience.
-day1_data = generate_students("AUD1", 1, 1000)
-day2_data = generate_students("AUD2", 1, 1000)
+# 2. Audience Data: total 2000 students per day
+# 1 file with 1100, 3 files with 300 each (to match rooms 1100, 300, 300, 300)
+day1_data = generate_students("AUD1", 1, 2000)
+day2_data = generate_students("AUD2", 1, 2000)
 
-for i in range(4):
-    part_data = day1_data[i*250 : (i+1)*250]
-    write_csv(f"audience_day1_part{i+1}.csv", ["Name", "Regdno", "Emailid", "Degree", "Contactno", "Passoutyear"], part_data)
+distribution = [1100, 300, 300, 300]
 
-for i in range(4):
-    part_data = day2_data[i*250 : (i+1)*250]
-    write_csv(f"audience_day2_part{i+1}.csv", ["Name", "Regdno", "Emailid", "Degree", "Contactno", "Passoutyear"], part_data)
+# Day 1
+start = 0
+for i, count in enumerate(distribution):
+    part_data = day1_data[start : start+count]
+    write_csv(f"audience_day1_part{i+1}.csv", csv_header, part_data)
+    start += count
+
+# Day 2
+start = 0
+for i, count in enumerate(distribution):
+    part_data = day2_data[start : start+count]
+    write_csv(f"audience_day2_part{i+1}.csv", csv_header, part_data)
+    start += count
 
 # 3. Rooms: 4 rooms across both days. 
 # 1 room (1100 cap, 30 rows), 3 rooms (300 cap, 30 rows)

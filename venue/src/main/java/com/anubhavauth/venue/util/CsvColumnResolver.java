@@ -12,7 +12,7 @@ public class CsvColumnResolver {
 
     private Map<String, Map<String, String>> student = new HashMap<>();
     private Map<String, Map<String, String>> room = new HashMap<>();
-    private java.util.List<String> validDegrees = new java.util.ArrayList<>();
+    private java.util.List<String> validBranches = new java.util.ArrayList<>();
 
     // Getters and setters required for @ConfigurationProperties binding
     public Map<String, Map<String, String>> getStudent() { return student; }
@@ -21,8 +21,8 @@ public class CsvColumnResolver {
     public Map<String, Map<String, String>> getRoom() { return room; }
     public void setRoom(Map<String, Map<String, String>> room) { this.room = room; }
 
-    public java.util.List<String> getValidDegrees() { return validDegrees; }
-    public void setValidDegrees(java.util.List<String> validDegrees) { this.validDegrees = validDegrees; }
+    public java.util.List<String> getValidBranches() { return validBranches; }
+    public void setValidBranches(java.util.List<String> validBranches) { this.validBranches = validBranches; }
 
     /**
      * Resolves header line to a map of fieldKey → columnIndex.

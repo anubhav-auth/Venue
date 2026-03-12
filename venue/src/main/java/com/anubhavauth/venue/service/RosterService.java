@@ -8,6 +8,7 @@ import com.anubhavauth.venue.entity.Student;
 import com.anubhavauth.venue.repository.RoomRepository;
 import com.anubhavauth.venue.repository.RoomRosterRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
+import com.anubhavauth.venue.util.CsvColumnResolver;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +39,10 @@ public class RosterService {
     private final StudentRepository studentRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final CsvColumnResolver csvColumnResolver;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final CsvImportService csvImportService;
+
 
     @Autowired
     @Qualifier("uploadExecutor")
@@ -78,80 +84,110 @@ public class RosterService {
                     new InputStreamReader(new ByteArrayInputStream(bytes)))) {
 
                 String headerLine = reader.readLine();
-                if (headerLine == null) {
-                    storeError(jobId, "Empty file");
-                    return;
-                }
+                if (headerLine == null) { storeError(jobId, "Empty file"); return; }
 
-                // Resolve columns (case-insensitive)
                 String[] headers = headerLine.split(",");
                 Map<String, Integer> indexMap = resolveHeaders(headers);
 
-                Integer regNoIdx = indexMap.get("regno");
-                if (regNoIdx == null) {
-                    storeError(jobId, "Missing required column: Regd. No or RegNo");
-                    return;
-                }
+                // Resolve regNo column — support both "Regd. No" → "regdno" and "RegNo" → "regno"
+                Integer regNoIdx = indexMap.get("regdno") != null ? indexMap.get("regdno") : indexMap.get("regno");
+                Integer nameIdx  = indexMap.get("fullname") != null ? indexMap.get("fullname") : indexMap.get("name");
+                Integer branchIdx = indexMap.get("branch");
+
+                if (regNoIdx == null) { storeError(jobId, "Missing required column: Regd. No"); return; }
+                if (nameIdx == null)  { storeError(jobId, "Missing required column: Full Name"); return; }
+                if (branchIdx == null){ storeError(jobId, "Missing required column: BRANCH"); return; }
+
+                // Pre-load existing regNos for duplicate detection within batch
+                Set<String> seenInBatch = new HashSet<>();
+                List<String> validBranches = csvColumnResolver.getValidBranches();
+
+                record ParsedRow(int rowNum, String regNo, String name, String branch) {}
+                List<ParsedRow> toProcess = new ArrayList<>();
 
                 String line;
                 int rowNum = 1;
                 while ((line = reader.readLine()) != null) {
                     rowNum++;
                     if (line.isBlank()) continue;
-
                     String[] cols = line.split(",", -1);
-                    if (regNoIdx >= cols.length) {
-                        rowErrors.add(ImportResult.RowError.builder()
-                                .row(rowNum).reason("Row too short").build());
-                        skipped++;
-                        continue;
+
+                    String regNo  = getCol(cols, regNoIdx);
+                    String name   = getCol(cols, nameIdx);
+                    String branch = getCol(cols, branchIdx);
+
+                    if (regNo == null || name == null || branch == null) {
+                        rowErrors.add(ImportResult.RowError.builder().row(rowNum).reason("Missing required fields").build());
+                        skipped++; continue;
                     }
 
-                    String regNo = cols[regNoIdx].trim().toLowerCase();
-                    if (regNo.isEmpty()) {
-                        rowErrors.add(ImportResult.RowError.builder()
-                                .row(rowNum).reason("Empty Regd. No").build());
-                        skipped++;
-                        continue;
+                    regNo = regNo.toLowerCase();
+                    String branchUpper = branch.toUpperCase();
+
+                    if (!validBranches.contains(branchUpper)) {
+                        rowErrors.add(ImportResult.RowError.builder().row(rowNum)
+                                .reason("Invalid branch '" + branch + "'. Allowed: " + validBranches).build());
+                        skipped++; continue;
                     }
 
-                    Optional<Student> studentOpt = studentRepository.findByRegNo(regNo);
-                    if (studentOpt.isEmpty()) {
-                        rowErrors.add(ImportResult.RowError.builder()
-                                .row(rowNum).reason("Student not found: " + regNo).build());
-                        skipped++;
-                        continue;
+                    if (seenInBatch.contains(regNo)) {
+                        rowErrors.add(ImportResult.RowError.builder().row(rowNum)
+                                .reason("Duplicate regNo in file: " + regNo).build());
+                        skipped++; continue;
                     }
 
-                    Student student = studentOpt.get();
+                    seenInBatch.add(regNo);
+                    toProcess.add(new ParsedRow(rowNum, regNo, name, branchUpper));
+                }
 
-                    // Upsert: skip if already in roster for this room+day
-                    if (!rosterRepository.existsByRoomIdAndStudentIdAndDay(
-                            roomId, student.getId(), day)) {
-                        RoomRoster entry = RoomRoster.builder()
-                                .room(room)
-                                .student(student)
-                                .day(day)
-                                .build();
-                        rosterRepository.save(entry);
+                // Bulk-fetch which regNos already exist in DB
+                Set<String> existingRegNos = studentRepository.findAllRegNos();
+
+                // Create missing students (parallel BCrypt)
+                List<ParsedRow> newStudentRows = toProcess.stream()
+                        .filter(r -> !existingRegNos.contains(r.regNo()))
+                        .toList();
+
+                if (!newStudentRows.isEmpty()) {
+                    List<Student> toSave = newStudentRows.parallelStream().map(r ->
+                            Student.builder()
+                                    .regNo(r.regNo())
+                                    .name(r.name())
+                                    .degree(r.branch())
+                                    .passwordHash(passwordEncoder.encode(r.regNo()))
+                                    .role("AUDIENCE")
+                                    .isPromoted(false)
+                                    .build()
+                    ).collect(java.util.stream.Collectors.toList());
+                    csvImportService.saveStudents(toSave);
+                }
+
+                // Now upsert all rows into roster
+                for (ParsedRow row : toProcess) {
+                    Student student = studentRepository.findByRegNo(row.regNo())
+                            .orElse(null);
+                    if (student == null) {
+                        rowErrors.add(ImportResult.RowError.builder()
+                                .row(row.rowNum()).reason("Failed to create student: " + row.regNo()).build());
+                        skipped++; continue;
+                    }
+
+                    if (!rosterRepository.existsByRoomIdAndStudentIdAndDay(roomId, student.getId(), day)) {
+                        rosterRepository.save(RoomRoster.builder()
+                                .room(room).student(student).day(day).build());
                         imported++;
                     } else {
-                        skipped++; // already in roster — count as skipped (not error)
+                        skipped++;
                     }
                 }
             }
 
             ImportResult result = ImportResult.builder()
-                    .imported(imported)
-                    .skipped(skipped)
-                    .errors(rowErrors.size())
-                    .rowErrors(rowErrors)
-                    .build();
+                    .imported(imported).skipped(skipped)
+                    .errors(rowErrors.size()).rowErrors(rowErrors).build();
 
             redisTemplate.opsForValue()
-                    .set("upload:job:" + jobId,
-                         objectMapper.writeValueAsString(result),
-                         2, TimeUnit.HOURS);
+                    .set("upload:job:" + jobId, objectMapper.writeValueAsString(result), 2, TimeUnit.HOURS);
 
         } catch (Exception e) {
             storeError(jobId, e.getMessage() != null ? e.getMessage() : "Unknown error");
@@ -208,4 +244,11 @@ public class RosterService {
         redisTemplate.opsForValue()
                 .set("upload:job:" + jobId, "ERROR:" + msg, 2, TimeUnit.HOURS);
     }
+
+    private String getCol(String[] cols, int idx) {
+        if (idx >= cols.length) return null;
+        String val = cols[idx].trim();
+        return val.isEmpty() ? null : val;
+    }
+
 }

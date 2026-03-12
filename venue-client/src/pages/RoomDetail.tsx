@@ -239,7 +239,7 @@ export default function RoomDetail() {
               {[
                 "RegNo",
                 "Name",
-                "Degree",
+                "Branch",
                 "Seat",
                 "Check-in Time",
                 "Verifier",

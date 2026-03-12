@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface RoomRosterRepository extends JpaRepository<RoomRoster, Long> {
 
     Page<RoomRoster> findByRoomIdAndDay(Long roomId, String day, Pageable pageable);
@@ -21,4 +23,6 @@ public interface RoomRosterRepository extends JpaRepository<RoomRoster, Long> {
     @Modifying
     @Query("DELETE FROM RoomRoster r WHERE r.room.id = :roomId AND r.day = :day")
     void deleteByRoomIdAndDay(@Param("roomId") Long roomId, @Param("day") String day);
+
+    List<RoomRoster> findByStudentIdIn(List<Long> studentIds);
 }

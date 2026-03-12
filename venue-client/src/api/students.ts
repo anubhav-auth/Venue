@@ -1,4 +1,27 @@
 import api from './client'
+export interface AssignmentInfo {
+  day: string
+  roomId: number
+  roomName: string
+  building: string
+  floor: string
+  seatNumber: string | null
+}
+
+export interface StudentOverview {
+  studentId: number
+  regNo: string
+  name: string
+  degree: string
+  role: string
+  assignments: AssignmentInfo[]
+}
+
+export const getStudentsOverview = (search = '', page = 0, size = 50) =>
+  api.get<{ content: StudentOverview[]; totalElements: number; totalPages: number; last: boolean }>(
+    'admin/students/overview',
+    { params: { search: search || undefined, page, size } }
+  )
 
 export interface Student {
   id: number; regNo: string; name: string;

@@ -7,9 +7,7 @@ import clsx from 'clsx'
 const nav = [
   { to: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: 'rooms',     label: 'Rooms',     icon: Building2 },
-  { to: 'students',  label: 'People',    icon: Users },
-  { to: 'allocations', label: 'Allocations', icon: LayoutGrid },
-  { to: 'checkin',   label: 'Check-in',  icon: QrCode },
+  { to: 'students',  label: 'People',    icon: Users }
 ]
 
 export default function Layout() {

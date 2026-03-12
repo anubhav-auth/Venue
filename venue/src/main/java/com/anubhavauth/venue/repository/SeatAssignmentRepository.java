@@ -40,5 +40,7 @@ public interface SeatAssignmentRepository extends JpaRepository<SeatAssignment, 
             @Param("roomId") Long roomId,
             Pageable pageable
     );
+
+    List<SeatAssignment> findByStudentIdIn(List<Long> studentIds);
 }
 

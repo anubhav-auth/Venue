@@ -65,7 +65,7 @@ export default function Allocations() {
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-            <tr>{['RegNo', 'Name', 'Degree', 'Room', 'Seat', 'Status'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
+            <tr>{['RegNo', 'Name', 'Branch', 'Room', 'Seat', 'Status'].map(h => <th key={h} className="px-4 py-3 text-left">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y">
             {alloc?.content.map(a => (
