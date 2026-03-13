@@ -42,8 +42,8 @@ export const updateVerifier = (
   data: { isTeamLead: boolean; assignedRoomId: number | null }
 ) => api.patch(`/admin/verifiers/${id}`, data);
 
-export const getMyRoom = () =>
-  api.get('/verifier/my-room');
+export const getMyRoom = (day?: string) =>
+    api.get('verifier/my-room', { params: day ? { day } : {} });
 
 export const markVolunteerAbsent = (volunteerId: number) =>
   api.post(`/admin/volunteers/${volunteerId}/mark-absent`);
