@@ -7,9 +7,9 @@ import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 
 
-const QR_FPS     = Number(import.meta.env.VITE_QR_FPS)              || 10
-const QR_BOX_W   = Number(import.meta.env.VITE_QR_BOX_WIDTH)        || 240
-const QR_BOX_H   = Number(import.meta.env.VITE_QR_BOX_HEIGHT)       || 240
+const QR_FPS = Number(import.meta.env.VITE_QR_FPS) || 10
+const QR_BOX_W = Number(import.meta.env.VITE_QR_BOX_WIDTH) || 240
+const QR_BOX_H = Number(import.meta.env.VITE_QR_BOX_HEIGHT) || 240
 const REFETCH_MS = Number(import.meta.env.VITE_STATS_REFETCH_INTERVAL) || 30_000
 
 
@@ -36,18 +36,18 @@ export default function VerifierScan() {
   const days = assignments?.map((a) => a.day) ?? ['day1']
   const [selectedDay, setSelectedDay] = useState<string>(days[0])
 
-  const [view, setView]             = useState<ViewState>('closed')
-  const [scanState, setScanState]   = useState<ScanState>('idle')
+  const [view, setView] = useState<ViewState>('closed')
+  const [scanState, setScanState] = useState<ScanState>('idle')
   const [lastResult, setLastResult] = useState<StudentScanResult | null>(null)
   const [recentScans, setRecentScans] = useState<RecentScan[]>([])
   const [frozenFrame, setFrozenFrame] = useState<string | null>(null)
 
-  const [showReview, setShowReview]           = useState(false)
-  const [reviewText, setReviewText]           = useState('')
+  const [showReview, setShowReview] = useState(false)
+  const [reviewText, setReviewText] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
-  const processingRef      = useRef(false)
-  const scannerRef         = useRef<Html5Qrcode | null>(null)
+  const processingRef = useRef(false)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const intentionalStopRef = useRef(false)   // ✅ guards the .catch() from overriding 'result'
 
 
@@ -60,21 +60,25 @@ export default function VerifierScan() {
 
 
   // ── Scan Again ───────────────────────────────────────────────────────────────
-  const handleScanAgain = () => {
-    setScanState('idle')
-    setLastResult(null)
-    setFrozenFrame(null)
-    setShowReview(false)
-    setReviewText('')
-    processingRef.current = false
-    setView('scanning')
-  }
+  // Scan Again
+  const handleScanAgain = async () => {
+    try { await scannerRef.current?.stop(); } catch { /* already stopped */ }
+    scannerRef.current = null;
+    setScanState('idle');
+    setLastResult(null);
+    setFrozenFrame(null);
+    setShowReview(false);
+    setReviewText('');
+    processingRef.current = false;
+    setView('scanning');
+  };
+
 
 
   // ── Close scanner ────────────────────────────────────────────────────────────
   const handleClose = () => {
     intentionalStopRef.current = true          // ✅ mark before stop()
-    scannerRef.current?.stop().catch(() => {})
+    scannerRef.current?.stop().catch(() => { })
     setView('closed')
     setScanState('idle')
     setLastResult(null)
@@ -189,43 +193,39 @@ export default function VerifierScan() {
         { facingMode: 'environment' },
         { fps: QR_FPS, qrbox: { width: QR_BOX_W, height: QR_BOX_H } },
         (qrData) => handleScanSuccessRef.current(qrData),
-        () => {}
+        () => { }
       )
       .catch(() => {
         // ✅ Only fall back to 'closed' if it was NOT an intentional stop
         if (!intentionalStopRef.current) setView('closed')
       })
 
-    return () => { scanner.stop().catch(() => {}) }
+    return () => { scanner.stop().catch(() => { }) }
   }, [view])
 
 
   // ── Result card styles ─────────────────────────────────────────────────────────
   const resultStyle: Record<'success' | 'duplicate' | 'error', { bg: string; label: string; icon: string }> = {
-    success:   { bg: 'bg-green-500',  label: 'Checked In!',     icon: '✓' },
+    success: { bg: 'bg-green-500', label: 'Checked In!', icon: '✓' },
     duplicate: { bg: 'bg-yellow-400', label: 'Already Scanned', icon: '⚠' },
-    error:     { bg: 'bg-red-500',    label: 'Scan Failed',     icon: '✗' },
+    error: { bg: 'bg-red-500', label: 'Scan Failed', icon: '✗' },
   }
 
 
   return (
     <div className="space-y-4">
 
-      {/* Day selector */}
-      {days.length > 1 && (
-        <div className="flex gap-2">
-          {days.map((d) => (
-            <button key={d} onClick={() => setSelectedDay(d)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                selectedDay === d
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
+      {/* Day selector — always visible */}
+      <div className="flex gap-2">
+        {(['day1', 'day2'] as const).map(d => (
+          <button key={d} onClick={() => setSelectedDay(d)}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${selectedDay === d ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'
               }`}>
-              {d === 'day1' ? 'Day 1' : 'Day 2'}
-            </button>
-          ))}
-        </div>
-      )}
+            {d === 'day1' ? 'Day 1' : 'Day 2'}
+          </button>
+        ))}
+      </div>
+
 
       {/* Stats card */}
       {stats && (
@@ -237,8 +237,8 @@ export default function VerifierScan() {
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
               { label: 'Checked In', value: stats.checkedInCount, color: 'text-green-600' },
-              { label: 'Remaining',  value: stats.remaining,      color: 'text-orange-500' },
-              { label: 'Capacity',   value: stats.capacity,       color: 'text-gray-700' },
+              { label: 'Remaining', value: stats.remaining, color: 'text-orange-500' },
+              { label: 'Capacity', value: stats.capacity, color: 'text-gray-700' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-gray-50 rounded-lg py-2">
                 <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -248,10 +248,9 @@ export default function VerifierScan() {
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                stats.status === 'high' ? 'bg-green-500'
-                  : stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
-              }`}
+              className={`h-full rounded-full transition-all duration-500 ${stats.status === 'high' ? 'bg-green-500'
+                : stats.status === 'medium' ? 'bg-yellow-400' : 'bg-red-500'
+                }`}
               style={{ width: `${Math.min(stats.percentage, 100)}%` }}
             />
           </div>
@@ -400,14 +399,10 @@ export default function VerifierScan() {
                       )}
                     </div>
 
-                    {/* Scan Again */}
-                    <button
-                      onClick={handleScanAgain}
-                      className="w-full py-3.5 bg-white/20 hover:bg-white/30 active:scale-95
-                                 text-white font-bold text-base rounded-xl transition-all"
-                    >
-                      📷 Scan Next Student
+                    <button onClick={handleScanAgain} className="w-full py-3.5 bg-white/20 hover:bg-white/30 active:scale-95 text-white font-bold text-base rounded-xl transition-all">
+                      📷 Scan Next ({selectedDay === 'day1' ? 'Day 1' : 'Day 2'})
                     </button>
+
                   </div>
                 </div>
               )
@@ -430,10 +425,9 @@ export default function VerifierScan() {
                     {scan.time.toLocaleTimeString()}
                   </p>
                 </div>
-                <span className={`w-3 h-3 rounded-full ${
-                  scan.result === 'success'   ? 'bg-green-500'
-                    : scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
-                }`} />
+                <span className={`w-3 h-3 rounded-full ${scan.result === 'success' ? 'bg-green-500'
+                  : scan.result === 'duplicate' ? 'bg-yellow-400' : 'bg-red-500'
+                  }`} />
               </div>
             ))}
           </div>

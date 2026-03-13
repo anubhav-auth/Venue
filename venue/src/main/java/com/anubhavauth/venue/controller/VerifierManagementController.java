@@ -6,6 +6,7 @@ import com.anubhavauth.venue.repository.RoomRepository;
 import com.anubhavauth.venue.repository.StudentRepository;
 import com.anubhavauth.venue.repository.VerifierAssignmentRepository;
 import com.anubhavauth.venue.repository.VerifierRepository;
+import com.anubhavauth.venue.repository.CheckInRepository;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class VerifierManagementController {
     private final VerifierAssignmentRepository verifierAssignmentRepository;
     private final StudentRepository studentRepository;
     private final RoomRepository roomRepository;
+    private final CheckInRepository checkInRepository;
 
     @GetMapping("/verifiers")
     @Transactional(readOnly = true)          // ← add this
@@ -84,6 +86,7 @@ public class VerifierManagementController {
         }
 
         // Delete verifier — ON DELETE CASCADE removes all verifier_assignments
+        checkInRepository.detachVerifier(verifier.getId());
         verifierRepository.delete(verifier);
 
         return ResponseEntity.ok(Map.of(
@@ -119,6 +122,7 @@ public class VerifierManagementController {
             }
 
             // Delete verifier — cascade removes assignments
+            checkInRepository.detachVerifier(verifier.getId());
             verifierRepository.delete(verifier);
         }
 
@@ -186,6 +190,7 @@ public class VerifierManagementController {
                 student.setIsPromoted(false);
                 studentRepository.save(student);
             }
+            checkInRepository.detachVerifier(verifier.getId());
             verifierRepository.delete(verifier);
             return ResponseEntity.ok(Map.of(
                     "message", "Last assignment removed — verifier auto-demoted",

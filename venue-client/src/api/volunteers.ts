@@ -30,8 +30,8 @@ export interface VerifierDto {
 export const getVolunteers = () =>
   api.get<VolunteerDto[]>('admin/volunteers')
 
-export const adminScanVolunteer = (qrData: string) =>
-  api.post<{ studentId: number; name: string; regNo: string }>('admin/volunteers/scan', { qrData })
+export const adminScanVolunteer = (qrData: string, day: string) =>
+  api.post<{ studentId: number; name: string; regNo: string }>('admin/volunteers/scan', { qrData, day });
 
 export const promoteVolunteer = (id: number, assignments: { day: string; roomId: number }[]) =>
   api.post(`admin/volunteers/${id}/promote`, { assignments })

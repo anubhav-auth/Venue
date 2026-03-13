@@ -76,28 +76,45 @@ public class RosterService {
         try {
             Room room = roomRepository.findById(roomId)
                     .orElseThrow(() -> new RuntimeException("ROOM_NOT_FOUND"));
-
+            if (!room.getDay().equals(day)) {
+                storeError(jobId, "Day mismatch: room '" + room.getRoomName() + "' is for "
+                        + room.getDay() + " but upload requested for " + day);
+                return;
+            }
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(new ByteArrayInputStream(bytes)))) {
 
                 String headerLine = reader.readLine();
-                if (headerLine == null) { storeError(jobId, "Empty file"); return; }
+                if (headerLine == null) {
+                    storeError(jobId, "Empty file");
+                    return;
+                }
 
                 String[] headers = headerLine.split(",");
                 Map<String, Integer> indexMap = resolveHeaders(headers);
 
-                Integer regNoIdx  = indexMap.get("regdno") != null ? indexMap.get("regdno") : indexMap.get("regno");
-                Integer nameIdx   = indexMap.get("fullname") != null ? indexMap.get("fullname") : indexMap.get("name");
+                Integer regNoIdx = indexMap.get("regdno") != null ? indexMap.get("regdno") : indexMap.get("regno");
+                Integer nameIdx = indexMap.get("fullname") != null ? indexMap.get("fullname") : indexMap.get("name");
                 Integer branchIdx = indexMap.get("branch");
 
-                if (regNoIdx == null)  { storeError(jobId, "Missing required column: Regd. No"); return; }
-                if (nameIdx == null)   { storeError(jobId, "Missing required column: Full Name"); return; }
-                if (branchIdx == null) { storeError(jobId, "Missing required column: BRANCH");   return; }
+                if (regNoIdx == null) {
+                    storeError(jobId, "Missing required column: Regd. No");
+                    return;
+                }
+                if (nameIdx == null) {
+                    storeError(jobId, "Missing required column: Full Name");
+                    return;
+                }
+                if (branchIdx == null) {
+                    storeError(jobId, "Missing required column: BRANCH");
+                    return;
+                }
 
                 Set<String> seenInBatch = new HashSet<>();
                 List<String> validBranches = csvColumnResolver.getValidBranches();
 
-                record ParsedRow(int rowNum, String regNo, String name, String branch) {}
+                record ParsedRow(int rowNum, String regNo, String name, String branch) {
+                }
                 List<ParsedRow> toProcess = new ArrayList<>();
 
                 String line;
@@ -107,8 +124,8 @@ public class RosterService {
                     if (line.isBlank()) continue;
                     String[] cols = line.split(",", -1);
 
-                    String regNo  = getCol(cols, regNoIdx);
-                    String name   = getCol(cols, nameIdx);
+                    String regNo = getCol(cols, regNoIdx);
+                    String name = getCol(cols, nameIdx);
                     String branch = getCol(cols, branchIdx);
 
                     if (regNo == null || name == null || branch == null) {
@@ -245,7 +262,9 @@ public class RosterService {
         rosterRepository.deleteByRoomIdAndDay(roomId, day);
     }
 
-    /** Resolve CSV headers to field-index map (case-insensitive, strips non-alphanumeric). */
+    /**
+     * Resolve CSV headers to field-index map (case-insensitive, strips non-alphanumeric).
+     */
     private Map<String, Integer> resolveHeaders(String[] headers) {
         Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < headers.length; i++) {

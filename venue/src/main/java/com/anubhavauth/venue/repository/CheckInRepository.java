@@ -23,4 +23,8 @@ public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     // Fix 5 — batch-load all check-ins for a given day (no per-row calls)
     List<CheckIn> findByDayAndDeletedAtIsNull(String day);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE CheckIn c SET c.verifier = null WHERE c.verifier.id = :verifierId")
+    void detachVerifier(@Param("verifierId") Long verifierId);
 }

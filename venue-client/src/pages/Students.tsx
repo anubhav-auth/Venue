@@ -27,17 +27,16 @@ export default function People() {
       <div className="flex gap-2">
         {(['students', 'volunteers', 'verifiers'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize ${
-              tab === t ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}>
+            className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize ${tab === t ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}>
             {t}
           </button>
         ))}
       </div>
 
-      {tab === 'students'   && <StudentsTab />}
+      {tab === 'students' && <StudentsTab />}
       {tab === 'volunteers' && <VolunteersTab qc={qc} />}
-      {tab === 'verifiers'  && <VerifiersTab qc={qc} />}
+      {tab === 'verifiers' && <VerifiersTab qc={qc} />}
     </div>
   )
 }
@@ -108,9 +107,8 @@ function StudentsTab() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                        s.role === 'VOLUNTEER' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                      }`}>
+                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${s.role === 'VOLUNTEER' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
                         {s.role}
                       </span>
                     </td>
@@ -156,16 +154,17 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const [promoteModal, setPromoteModal] = useState<{ open: boolean; id?: number; name?: string }>({ open: false })
   const [assignments, setAssignments] = useState<{ day: string; roomId: number }[]>([{ day: 'day1', roomId: 0 }])
   const [scanActive, setScanActive] = useState(false)
+  const [scanDay, setScanDay] = useState<'day1' | 'day2'>('day1');
   const scannerRef = useRef<Html5Qrcode | null>(null)
 
   const volunteers_upload = useCsvUpload(uploadVolunteerCsv, pollVolunteerUploadStatus, ['volunteers'])
 
   const { data: volunteers = [] } = useQuery({ queryKey: ['volunteers'], queryFn: () => getVolunteers().then(r => r.data) })
-  const { data: day1Rooms = [] }  = useQuery({ queryKey: ['rooms', 'day1'], queryFn: () => getRooms('day1').then(r => r.data) })
-  const { data: day2Rooms = [] }  = useQuery({ queryKey: ['rooms', 'day2'], queryFn: () => getRooms('day2').then(r => r.data) })
+  const { data: day1Rooms = [] } = useQuery({ queryKey: ['rooms', 'day1'], queryFn: () => getRooms('day1').then(r => r.data) })
+  const { data: day2Rooms = [] } = useQuery({ queryKey: ['rooms', 'day2'], queryFn: () => getRooms('day2').then(r => r.data) })
 
   const scan = useMutation({
-    mutationFn: (qrData: string) => adminScanVolunteer(qrData),
+    mutationFn: (qrData: string) => adminScanVolunteer(qrData, scanDay),
     onSuccess: r => { toast.success(`✅ Scanned: ${r.data.name}`); qc.invalidateQueries({ queryKey: ['volunteers'] }) },
     onError: (e: any) => toast.error(e.response?.data?.error || 'Scan failed'),
   })
@@ -185,12 +184,12 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
     setScanActive(true)
     const scanner = new Html5Qrcode('admin-qr-reader')
     scannerRef.current = scanner
-    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 250 },
-      text => { scan.mutate(text); stopScan() }, () => {})
+    await scanner.start({ facingMode: 'environment' }, { fps: 60, qrbox: 250 },
+      text => { scan.mutate(text); stopScan() }, () => { })
   }
   const stopScan = async () => {
     setScanActive(false)
-    try { await scannerRef.current?.stop() } catch {}
+    try { await scannerRef.current?.stop() } catch { }
   }
 
   return (
@@ -203,17 +202,25 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
           <p className="text-xs text-gray-400">Required columns: Full Name, Regd. No, BRANCH. QR generated automatically.</p>
           <CsvUploadZone label="Volunteers" onUpload={volunteers_upload.upload} />
           {volunteers_upload.status === 'processing' && <p className="text-xs text-indigo-500 animate-pulse">⏳ Processing…</p>}
-          {volunteers_upload.status === 'done'       && <p className="text-xs text-green-600">{volunteers_upload.msg}</p>}
-          {volunteers_upload.status === 'error'      && <p className="text-xs text-red-500">{volunteers_upload.msg}</p>}
+          {volunteers_upload.status === 'done' && <p className="text-xs text-green-600">{volunteers_upload.msg}</p>}
+          {volunteers_upload.status === 'error' && <p className="text-xs text-red-500">{volunteers_upload.msg}</p>}
         </div>
 
         <div className="bg-white rounded-xl border p-6 space-y-3">
           <h2 className="font-semibold text-sm">Scan Volunteer QR (Admin Bootstrap)</h2>
+          <div className="flex gap-2">
+            {(['day1', 'day2'] as const).map(d => (
+              <button key={d} onClick={() => setScanDay(d)}
+                className={`px-3 py-1 text-xs rounded-full font-medium ${scanDay === d ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                {d === 'day1' ? 'Day 1' : 'Day 2'}
+              </button>
+            ))}
+          </div>
           <div id="admin-qr-reader" className={scanActive ? 'w-full max-w-xs' : 'hidden'} />
           <button onClick={scanActive ? stopScan : startScan}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
-              scanActive ? 'bg-red-100 text-red-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'
-            }`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${scanActive ? 'bg-red-100 text-red-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              }`}>
             {scanActive ? <><CameraOff size={14} /> Stop Scanner</> : <><Camera size={14} /> Open Scanner</>}
           </button>
         </div>
@@ -238,9 +245,8 @@ function VolunteersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
                   <td className="px-4 py-3">{v.day1Attended ? '✅' : '—'}</td>
                   <td className="px-4 py-3">{v.day2Attended ? '✅' : '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      v.isPromoted ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${v.isPromoted ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
+                      }`}>
                       {v.isPromoted ? 'Promoted' : 'Volunteer'}
                     </span>
                   </td>
@@ -308,11 +314,11 @@ function VerifiersTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const [editMap, setEditMap] = useState<Record<number, { isTeamLead: boolean; assignedRoomId: number | null }>>({})
 
   const { data: verifiers = [] } = useQuery({ queryKey: ['verifiers'], queryFn: () => getVerifiers().then(r => r.data) })
-  const { data: day1Rooms = [] }  = useQuery({ queryKey: ['rooms', 'day1'], queryFn: () => getRooms('day1').then(r => r.data) })
-  const { data: day2Rooms = [] }  = useQuery({ queryKey: ['rooms', 'day2'], queryFn: () => getRooms('day2').then(r => r.data) })
+  const { data: day1Rooms = [] } = useQuery({ queryKey: ['rooms', 'day1'], queryFn: () => getRooms('day1').then(r => r.data) })
+  const { data: day2Rooms = [] } = useQuery({ queryKey: ['rooms', 'day2'], queryFn: () => getRooms('day2').then(r => r.data) })
 
   const allRooms = [...day1Rooms, ...day2Rooms]
-  const getEdit  = (v: typeof verifiers[number]) => editMap[v.id] ?? { isTeamLead: v.isTeamLead, assignedRoomId: v.assignedRoomId }
+  const getEdit = (v: typeof verifiers[number]) => editMap[v.id] ?? { isTeamLead: v.isTeamLead, assignedRoomId: v.assignedRoomId }
 
   const demote = useMutation({
     mutationFn: (id: number) => demoteVerifier(id),

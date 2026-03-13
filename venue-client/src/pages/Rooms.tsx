@@ -107,20 +107,15 @@ export default function Rooms() {
   };
 
   // ── Roster upload ─────────────────────────────────────────────────────────
-  const triggerRosterUpload = (roomId: number) => {
-    setRosterState({
-      roomId,
-      uploading: false,
-      jobId: null,
-      status: "idle",
-      msg: "",
-    });
-    rosterInputRef.current?.click();
-    // Store current room id in data attribute
+  const triggerRosterUpload = (room: Room) => {
+    setRosterState({ roomId: room.id, uploading: false, jobId: null, status: 'idle', msg: '' });
     if (rosterInputRef.current) {
-      rosterInputRef.current.dataset.roomId = String(roomId);
+      rosterInputRef.current.dataset.roomId = String(room.id);
+      rosterInputRef.current.dataset.roomDay = room.day; // ← store room's own day
     }
-  };
+    rosterInputRef.current?.click();
+  }
+
 
   const handleRosterFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -130,7 +125,8 @@ export default function Rooms() {
 
     setRosterState((s) => ({ ...s, status: "uploading", uploading: true }));
     try {
-      const { data } = await uploadRoster(roomId, day, file);
+      const roomDay = (rosterInputRef.current?.dataset.roomDay ?? day) as 'day1' | 'day2';
+      const { data } = await uploadRoster(roomId, roomDay, file);
       const jobId = data.jobId;
       setRosterState((s) => ({ ...s, jobId, status: "processing" }));
       toast("Processing roster…", { icon: "⏳" });
@@ -234,7 +230,7 @@ export default function Rooms() {
                 <td className="px-4 py-3 text-gray-500">{(r as any).skipRows ?? 0}</td>
                 <td className="px-4 py-3">
                   <button
-                    onClick={() => triggerRosterUpload(r.id)}
+                    onClick={() => triggerRosterUpload(r)}
                     disabled={
                       rosterState.roomId === r.id &&
                       (rosterState.status === "uploading" ||
@@ -243,14 +239,14 @@ export default function Rooms() {
                     className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-indigo-200 text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
                   >
                     {rosterState.roomId === r.id &&
-                    (rosterState.status === "uploading" ||
-                      rosterState.status === "processing") ? (
+                      (rosterState.status === "uploading" ||
+                        rosterState.status === "processing") ? (
                       <Loader2 size={12} className="animate-spin" />
                     ) : (
                       <Upload size={12} />
                     )}
                     {rosterState.roomId === r.id &&
-                    rosterState.status === "done"
+                      rosterState.status === "done"
                       ? "Uploaded ✓"
                       : "Upload Roster"}
                   </button>

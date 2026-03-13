@@ -34,7 +34,7 @@ export default function CheckIn() {
     setScanning(true)
     const scanner = new Html5Qrcode('qr-reader')
     scannerRef.current = scanner
-    await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 280 },
+    await scanner.start({ facingMode: 'environment' }, { fps: 60, qrbox: 280 },
       async (text) => {
         if (processingRef.current) return
         processingRef.current = true
