@@ -51,22 +51,22 @@ public class SecurityConfig {
                         .requestMatchers("/api/student/auth/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
 
-                        // ── TEAMLEAD-accessible admin endpoints ───────────────
+                        // ── TEAM_LEAD-accessible admin endpoints ──────────────
                         // MUST come before the /api/admin/** catch-all
                         .requestMatchers(HttpMethod.POST, "/api/admin/volunteers/*/mark-absent")
-                        .hasAnyRole("ADMIN", "TEAMLEAD")
+                        .hasAnyRole("ADMIN", "TEAM_LEAD")
                         .requestMatchers(HttpMethod.POST, "/api/admin/volunteers/scan")
-                        .hasAnyRole("ADMIN", "TEAMLEAD")
+                        .hasAnyRole("ADMIN", "TEAM_LEAD")
                         .requestMatchers(HttpMethod.GET, "/api/admin/volunteers")
-                        .hasAnyRole("ADMIN", "TEAMLEAD")
+                        .hasAnyRole("ADMIN", "TEAM_LEAD")
 
                         // ── Admin catch-all ───────────────────────────────────
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // ── Verifier / TeamLead routes ────────────────────────
-                        .requestMatchers("/api/checkin/*/review").hasAnyRole("VERIFIER", "TEAMLEAD", "ADMIN")
-                        .requestMatchers("/api/checkin/**").hasAnyRole("VERIFIER", "TEAMLEAD", "ADMIN")
-                        .requestMatchers("/api/verifier/**").hasAnyRole("VERIFIER", "TEAMLEAD", "ADMIN")
+                        .requestMatchers("/api/checkin/*/review").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
+                        .requestMatchers("/api/checkin/**").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
+                        .requestMatchers("/api/verifier/**").hasAnyRole("VERIFIER", "TEAM_LEAD", "ADMIN")
 
                         // ── Student portal ────────────────────────────────────
                         .requestMatchers("/api/student/**").hasAnyRole("AUDIENCE", "VOLUNTEER")

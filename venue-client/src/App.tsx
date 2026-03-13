@@ -72,7 +72,7 @@ function AdminGuard({ children }: { children: ReactNode }) {
   if (role === 'AUDIENCE') return <Navigate to="/my-seat" replace />;
   if (role === 'VOLUNTEER') return <Navigate to="/my-pass" replace />;
   if (role === 'VERIFIER') return <Navigate to="/verifier" replace />;
-  if (role === 'TEAMLEAD') return <Navigate to="/verifier" replace />; // ✅ ADD THIS
+  if (role === 'TEAM_LEAD') return <Navigate to="/verifier" replace />; // ✅ ADD THIS
   return <>{children}</>;
 }
 
@@ -83,7 +83,7 @@ function FallbackRedirect() {
   if (role === 'AUDIENCE') return <Navigate to="/my-seat" replace />;
   if (role === 'VOLUNTEER') return <Navigate to="/my-pass" replace />;
   if (role === 'VERIFIER') return <Navigate to="/verifier" replace />;
-  if (role === 'TEAMLEAD') return <Navigate to="/verifier" replace />; // ✅ ADD THIS
+  if (role === 'TEAM_LEAD') return <Navigate to="/verifier" replace />; // ✅ ADD THIS
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -102,7 +102,7 @@ function VerifierGuard({ children }: { children: ReactNode }) {
   const token = useAuthStore(s => s.token);
   const role = useAuthStore(s => s.role);
   if (!token) return <Navigate to="/login" replace />;
-  if (role !== 'VERIFIER' && role !== 'TEAMLEAD') return <Navigate to="/login" replace />;
+  if (role !== 'VERIFIER' && role !== 'TEAM_LEAD') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 

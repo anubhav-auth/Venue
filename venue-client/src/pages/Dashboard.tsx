@@ -38,7 +38,7 @@ export default function Dashboard() {
         brokerURL: `ws://${window.location.host}/ws/websocket`,
         reconnectDelay: 5000,
         onConnect: () => {
-          client?.subscribe(`/topic/dashboard/${day}`, () => {
+          client?.subscribe(`/topic/checkin/${day}`, () => {
             qc.invalidateQueries({ queryKey: ["dashboard", day] });
           });
         },
@@ -97,7 +97,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-xl font-semibold text-gray-800">Dashboard</h1>
         <button
           onClick={() => {
@@ -264,7 +264,8 @@ export default function Dashboard() {
 
       {/* Room table */}
       <div className="bg-white rounded-xl border overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[600px]">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
             <tr>
               {["Room", "Capacity", "Checked In", "%", "Status", ""].map(
@@ -322,6 +323,7 @@ export default function Dashboard() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {stats?.lastUpdated && (

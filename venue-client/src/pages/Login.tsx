@@ -41,7 +41,7 @@ export default function Login() {
         onSubmit={submit}
         className="bg-white rounded-xl shadow p-8 w-full max-w-sm space-y-5"
       >
-        <h2 className="text-2xl font-bold text-gray-800">Venue Admin</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Venue</h2>
 
         <div className="space-y-3">
           <input

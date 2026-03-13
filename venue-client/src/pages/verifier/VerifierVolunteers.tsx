@@ -37,7 +37,7 @@ export default function VerifierVolunteers() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h1 className="text-lg font-semibold text-gray-800">Volunteers in Your Room</h1>
         <div className="flex gap-2">
           {(['day1', 'day2'] as const).map(d => (
@@ -55,7 +55,8 @@ export default function VerifierVolunteers() {
       </div>
 
       <div className="bg-white rounded-xl border overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[580px]">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
             <tr>
               {['Reg No', 'Name', 'Status', 'Check-in Time', 'Action'].map(h => (
@@ -120,6 +121,7 @@ export default function VerifierVolunteers() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
