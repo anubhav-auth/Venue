@@ -20,6 +20,7 @@ public class LoginResponse {
     private String name;
 
     // Additional fields for verifiers
+    @com.fasterxml.jackson.annotation.JsonProperty("isTeamLead")
     private boolean isTeamLead;
     private Long assignedRoomId;
 
